@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { getJwtSecret } from '@/lib/auth-utils';
+import { getCACertPem, getOrCreateTlsAuthKey, getOrCreateUserCert } from '@/lib/pki';
 
 export async function GET(req: Request) {
   try {
@@ -15,17 +16,20 @@ export async function GET(req: Request) {
 
     const secret = await getJwtSecret();
     const decoded: any = jwt.verify(token, secret);
-    
-    const users: any[] = await query('SELECT * FROM vpn_users WHERE id = ?', [decoded.id]);
+
+    const users: any[] = await query(
+      'SELECT * FROM vpn_users WHERE id = ?',
+      [decoded.id]
+    );
     const user = users[0];
 
     if (!user || user.status !== 'active') {
-       return NextResponse.redirect(new URL('/client', req.url));
+      return NextResponse.redirect(new URL('/client', req.url));
     }
 
-    // 1. Select the least loaded active server
+    // Select least-loaded active server
     const servers: any[] = await query(`
-      SELECT 
+      SELECT
         s.id, s.ip_address, s.ports, s.protocol, s.load_score,
         (SELECT COUNT(*) FROM sessions WHERE server_id = s.id AND status = 'active') as active_connections
       FROM vpn_servers s
@@ -35,19 +39,25 @@ export async function GET(req: Request) {
     `);
 
     const server = servers[0];
-    
-    // Check if user has custom config
+
     let userProtocol = 'udp';
     if (user.custom_config) {
-        try {
-            const parsed = JSON.parse(user.custom_config);
-            if (parsed.protocol) userProtocol = parsed.protocol;
-        } catch (e) {}
+      try {
+        const parsed = JSON.parse(user.custom_config);
+        if (parsed.protocol) userProtocol = parsed.protocol;
+      } catch (_) {}
     }
 
-    const remoteLine = server 
-        ? `remote ${server.ip_address} ${JSON.parse(server.ports || '[1194]')[0]}`
-        : `remote 45.12.99.1 1194`;
+    const remoteLine = server
+      ? `remote ${server.ip_address} ${JSON.parse(server.ports || '[1194]')[0]}`
+      : `remote 45.12.99.1 1194`;
+
+    // Fetch real PKI material (generates on first use, cached thereafter)
+    const [caCert, tlsAuthKey, userCert] = await Promise.all([
+      getCACertPem(),
+      getOrCreateTlsAuthKey(),
+      getOrCreateUserCert(user.id, user.username),
+    ]);
 
     const profileContent = `client
 dev tun
@@ -67,33 +77,24 @@ connect-retry 1
 connect-timeout 5
 
 <ca>
------BEGIN CERTIFICATE-----
-CA_CERT_HERE
------END CERTIFICATE-----
+${caCert.trim()}
 </ca>
 <cert>
------BEGIN CERTIFICATE-----
-CLIENT_CERT_FOR_${user.username.toUpperCase()}
------END CERTIFICATE-----
+${userCert.certPem.trim()}
 </cert>
 <key>
------BEGIN PRIVATE KEY-----
-CLIENT_KEY_FOR_${user.username.toUpperCase()}
------END PRIVATE KEY-----
+${userCert.keyPem.trim()}
 </key>
 <tls-auth>
------BEGIN OpenVPN Static key V1-----
-TLS_AUTH_KEY
------END OpenVPN Static key V1-----
+${tlsAuthKey.trim()}
 </tls-auth>`;
 
     return new NextResponse(profileContent, {
-        headers: {
-            'Content-Disposition': `attachment; filename="${user.username}.ovpn"`,
-            'Content-Type': 'application/x-openvpn-profile'
-        }
+      headers: {
+        'Content-Disposition': `attachment; filename="${user.username}.ovpn"`,
+        'Content-Type': 'application/x-openvpn-profile',
+      },
     });
-
   } catch (error: any) {
     return NextResponse.redirect(new URL('/client', req.url));
   }
