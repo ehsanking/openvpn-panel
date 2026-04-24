@@ -9,6 +9,7 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Shield,
+  Zap,
   Menu,
   X,
   LayoutDashboard,
@@ -63,7 +64,9 @@ export default function Home() {
               <Key size={32} />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-center text-white mb-2 tracking-tight">OpenVPN Panel</h1>
+          <h1 className="text-3xl font-bold text-center text-white mb-2 tracking-tight flex items-center justify-center gap-2">
+            <Zap className="text-yellow-400" size={32} fill="currentColor" /> Power VPN
+          </h1>
           <p className="text-slate-500 text-center text-xs mb-8 font-medium uppercase tracking-widest">Instance Management</p>
           
           <form onSubmit={handleLogin} className="space-y-4">
@@ -112,7 +115,7 @@ export default function Home() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-950 px-4">
         <div className="max-w-md text-center">
-          <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <Zap className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
           <p className="text-neutral-400 mb-6">
             Your account ({user.email}) is not authorized to access this panel.
@@ -160,7 +163,9 @@ export default function Home() {
           <div className="w-8 h-8 bg-orange-600 rounded flex items-center justify-center text-white">
             <Key size={18} />
           </div>
-          <span className="text-lg font-semibold tracking-tight text-slate-900 truncate">OpenVPN Panel</span>
+          <span className="text-lg font-black italic tracking-wide text-slate-900 truncate flex items-center gap-2">
+            <Zap className="text-orange-600" size={16} fill="currentColor" /> POWER VPN
+          </span>
         </div>
 
         <nav className="flex-1 px-4 space-y-1">

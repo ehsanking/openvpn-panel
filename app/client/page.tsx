@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Shield, Download, MapPin, Activity, QrCode } from 'lucide-react';
+import { Shield, Download, MapPin, Activity, QrCode, Zap } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ClientPortal() {
@@ -48,10 +48,10 @@ export default function ClientPortal() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
         >
-          <div className="bg-orange-600 p-8 text-center text-white">
-            <Shield size={48} className="mx-auto mb-4 opacity-90" />
-            <h2 className="text-2xl font-bold">Welcome, {user.username}</h2>
-            <p className="text-orange-100 mt-2 text-sm">Your secure connection portal</p>
+          <div className="bg-orange-600 p-8 text-center text-white relative overflow-hidden">
+            <Zap size={48} className="mx-auto mb-4 opacity-90 text-yellow-300 drop-shadow-md" />
+            <h2 className="text-2xl font-bold tracking-tight">Power VPN Portal</h2>
+            <p className="text-orange-100 mt-2 text-sm font-medium">Your secure connection portal</p>
           </div>
 
           <div className="p-8 space-y-6">

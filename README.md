@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>🛡️ Ultimate Multi-Protocol VPN Manager</h1>
+  <h1>⚡ Power VPN Manager</h1>
   <p><b>Enterprise-grade fleet management system for OpenVPN, WireGuard, Cisco AnyConnect, and L2TP/IPsec.</b></p>
   
   <p>
