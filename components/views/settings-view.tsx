@@ -13,8 +13,6 @@ import {
   Database,
   CheckCircle2
 } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, collection, query, onSnapshot } from 'firebase/firestore';
 import { motion } from 'motion/react';
 
 interface ServerConfig {
@@ -38,28 +36,81 @@ export default function SettingsView() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const fetchConfig = async () => {
-      const docRef = doc(db, 'settings', 'config');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setConfig(docSnap.data() as ServerConfig);
-      }
-      setLoading(false);
-    };
-    fetchConfig();
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+            setConfig({
+                publicIp: data.publicIp || '45.12.99.1',
+                port: parseInt(data.port || '1194'),
+                protocol: data.protocol as 'udp' | 'tcp' || 'udp',
+                cipher: data.cipher || 'AES-256-GCM',
+                dnsServer: data.dnsServer || '1.1.1.1'
+            });
+        }
+        setLoading(false);
+      });
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'config'), config);
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       console.error("Error saving config", error);
     }
     setSaving(false);
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/maintenance/backup');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vpn-panel-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+    } catch (err) {
+      alert("Snapshot generation failed");
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!confirm("CRITICAL WARNING: This will purge the current MySQL database and restore from the snapshot. Continue?")) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        const res = await fetch('/api/maintenance/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert("Node restore successful. Rebooting session...");
+          window.location.reload();
+        } else {
+          alert("Restore rejected: " + result.error);
+        }
+      } catch (err) {
+        alert("Invalid snapshot format");
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (loading) return <div className="p-10 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">Parsing instance config...</div>;
@@ -180,17 +231,26 @@ export default function SettingsView() {
             onClick={() => alert("Displaying raw server.conf template...")}
           />
           <MaintenanceButton 
-            title="Snapshot Sync" 
-            description="Export all identity and session data to a portable format."
+            title="Snapshot Export" 
+            description="Download all identity and session data in JSON format."
             icon={<Database size={18} className="text-slate-400" />}
-            onClick={() => alert("Preparing DB snapshot...")}
+            onClick={handleExport}
           />
-          <MaintenanceButton 
-            title="Node Audit" 
-            description="Perform a security audit on the current instance."
-            icon={<Shield size={18} className="text-slate-400" />}
-            onClick={() => alert("Initializing node security audit...")}
-          />
+          <div className="relative">
+            <MaintenanceButton 
+              title="Identity Import" 
+              description="Restore users and settings from a previous snapshot file."
+              icon={<Shield size={18} className="text-slate-400" />}
+              onClick={() => document.getElementById('import-input')?.click()}
+            />
+            <input 
+              id="import-input"
+              type="file" 
+              accept=".json"
+              className="hidden"
+              onChange={handleImport}
+            />
+          </div>
         </div>
       </section>
     </div>

@@ -2,18 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Globe } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateOvpnProfile, downloadFile } from '@/lib/ovpn-generator';
 
 interface VpnUser {
-  id: string;
+  id: number;
   username: string;
   status: 'active' | 'suspended';
-  createdAt: any;
-  lastConnected?: any;
-  trafficTotal?: number;
+  created_at: string;
+  last_connected?: string;
 }
 
 export default function UsersView() {
@@ -23,31 +20,39 @@ export default function UsersView() {
   const [newUsername, setNewUsername] = useState('');
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  useEffect(() => {
-    const q = query(collection(db, 'vpnUsers'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const usersData: VpnUser[] = [];
-      snapshot.forEach((doc) => {
-        usersData.push({ id: doc.id, ...doc.data() } as VpnUser);
-      });
-      setUsers(usersData);
-    });
+  const fetchUsers = async () => {
+    const res = await fetch('/api/users');
+    const data = await res.json();
+    if (!data.error) setUsers(data);
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    const init = async () => {
+      await fetchUsers();
+    };
+    init();
+    const interval = setInterval(fetchUsers, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const filteredUsers = users.filter(user => 
     user.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const toggleUserStatus = async (userId: string, currentStatus: string) => {
+  const toggleUserStatus = async (userId: number, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-    await updateDoc(doc(db, 'vpnUsers', userId), { status: newStatus });
+    await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, status: newStatus })
+    });
+    fetchUsers();
   };
 
-  const deleteUser = async (userId: string) => {
+  const deleteUser = async (userId: number) => {
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-      await deleteDoc(doc(db, 'vpnUsers', userId));
+      await fetch(`/api/users?id=${userId}`, { method: 'DELETE' });
+      fetchUsers();
     }
   };
 
@@ -64,17 +69,18 @@ export default function UsersView() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername.trim()) return;
+    const trimmedUsername = newUsername.trim();
+    if (!trimmedUsername) return;
 
     try {
-      await addDoc(collection(db, 'vpnUsers'), {
-        username: newUsername.trim(),
-        status: 'active',
-        createdAt: Timestamp.now(),
-        trafficTotal: 0
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: trimmedUsername })
       });
       setNewUsername('');
       setIsAddModalOpen(false);
+      fetchUsers();
     } catch (error) {
       console.error("Error adding user", error);
     }

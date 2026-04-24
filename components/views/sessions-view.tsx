@@ -12,19 +12,15 @@ import {
   Search,
   Globe
 } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { motion } from 'motion/react';
 
 interface Session {
-  id: string;
-  userId: string;
+  id: number;
+  user_id: number;
   username: string;
-  startTime: any;
-  remoteIp: string;
-  virtualIp: string;
-  bytesIn: number;
-  bytesOut: number;
+  start_time: string;
+  ip_address: string;
+  status: 'active' | 'disconnected';
 }
 
 export default function SessionsView() {
@@ -41,18 +37,20 @@ export default function SessionsView() {
     () => 0
   );
 
-  useEffect(() => {
-    const q = query(collection(db, 'sessions'), orderBy('startTime', 'desc'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const sessionsData: Session[] = [];
-      snapshot.forEach((doc) => {
-        sessionsData.push({ id: doc.id, ...doc.data() } as Session);
-      });
-      setSessions(sessionsData);
-      setLoading(false);
-    });
+  const fetchSessions = async () => {
+    const res = await fetch('/api/sessions');
+    const data = await res.json();
+    if (!data.error) setSessions(data);
+    setLoading(false);
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    const init = async () => {
+      await fetchSessions();
+    };
+    init();
+    const interval = setInterval(fetchSessions, 10000); // 10s refresh
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -96,11 +94,7 @@ export default function SessionsView() {
                         <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                           <span className="flex items-center gap-1.5">
                             <Globe size={10} />
-                            {session.remoteIp}
-                          </span>
-                          <span className="w-1 h-1 bg-slate-200 rounded-full" />
-                          <span className="text-blue-500">
-                            {session.virtualIp}
+                            {session.ip_address}
                           </span>
                         </div>
                       </div>
@@ -110,16 +104,16 @@ export default function SessionsView() {
                       <div className="text-left md:text-center min-w-[80px]">
                         <p className="text-[9px] text-slate-400 mb-1 uppercase font-bold tracking-widest leading-none">Uptime</p>
                         <p className="text-xs font-bold text-slate-700 font-mono">
-                          {session.startTime?.toDate ? 
-                            Math.floor((now - session.startTime.toDate()) / 60000) + 'min' : 
+                          {session.start_time ? 
+                            Math.floor((now - new Date(session.start_time).getTime()) / 60000) + 'min' : 
                             '...'
                           }
                         </p>
                       </div>
                       <div className="text-left md:text-center min-w-[80px]">
-                        <p className="text-[9px] text-slate-400 mb-1 uppercase font-bold tracking-widest leading-none">Throughput</p>
-                        <p className="text-xs font-bold text-slate-900 font-mono">
-                          {(session.bytesIn / 1024 / 1024).toFixed(2)} <span className="text-[10px] text-slate-400">MB</span>
+                        <p className="text-[9px] text-slate-400 mb-1 uppercase font-bold tracking-widest leading-none">Status</p>
+                        <p className="text-[10px] font-bold text-blue-500 uppercase">
+                          {session.status}
                         </p>
                       </div>
                     </div>

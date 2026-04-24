@@ -1,18 +1,15 @@
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
-
 export async function generateOvpnProfile(username: string): Promise<string> {
-  // Fetch current server config
-  const configDoc = await getDoc(doc(db, 'settings', 'config'));
-  const config = configDoc.exists() ? configDoc.data() : {
+  // Fetch current server config from SQL API
+  const res = await fetch('/api/settings');
+  const data = await res.json();
+  const config = data.error ? {
     publicIp: '45.12.99.1',
     port: 1194,
     protocol: 'udp',
     cipher: 'AES-256-GCM',
     dnsServer: '1.1.1.1'
-  };
+  } : data;
 
-  // Mock certificate data (in a real app, these would be generated per user or rotation)
   const ca = `-----BEGIN CERTIFICATE-----
 MIIB9TCCAV+gAwIBAgIJAJ8aZzqYyY6TMA0GCSqGSIb3DQEBCwUAMBAxDjAMBgNV
 BAMMBUNBLUFSMCAXDTI0MDUwODEwMDcwM1onGA8yMTI0MDQxNDEwMDcwM1owEDEO
