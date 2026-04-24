@@ -1,15 +1,27 @@
-export async function generateOvpnProfile(username: string, servers: any[] = []): Promise<string> {
+export async function generateOvpnProfile(
+  username: string, 
+  servers: any[] = [],
+  userConfig: any = {}
+): Promise<string> {
   // Config defaults
   const defaults = {
     cipher: 'AES-256-GCM',
     auth: 'SHA256',
-    protocol: 'udp'
+    protocol: userConfig.protocol || 'udp',
+    keepalive: userConfig.keepalive || '10 60'
   };
 
-  const remoteLines = servers.length > 0 
-    ? servers.map(s => {
+  // Sort servers by load score and connections
+  const sortedServers = [...servers].sort((a, b) => {
+    return (a.load_score || 0) - (b.load_score || 0) || (a.active_connections || 0) - (b.active_connections || 0);
+  });
+
+  const bestServer = sortedServers[0];
+
+  const remoteLines = bestServer 
+    ? [bestServer].map(s => {
         const ports = Array.isArray(s.ports) ? s.ports : JSON.parse(s.ports || '[1194]');
-        return ports.map((p: number) => `remote ${s.ip_address} ${p}`).join('\n');
+        return `remote ${s.ip_address} ${ports[0] || 1194}`;
       }).join('\n')
     : `remote 45.12.99.1 1194`;
 
@@ -27,6 +39,7 @@ resolv-retry infinite
 nobind
 persist-key
 persist-tun
+keepalive ${defaults.keepalive}
 remote-cert-tls server
 auth ${defaults.auth}
 cipher ${defaults.cipher}

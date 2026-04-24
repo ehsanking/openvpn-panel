@@ -9,10 +9,10 @@ export async function GET(req: Request) {
         
         if (!username) return NextResponse.json({ error: 'Username required' }, { status: 400 });
 
-        // verify user exists and is active
-        const users: any = await query('SELECT * FROM vpn_users WHERE username = ? AND status = "active"', [username]);
+        // verify user exists, is active, and not expired
+        const users: any = await query('SELECT * FROM vpn_users WHERE username = ? AND status = "active" AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)', [username]);
         if (users.length === 0) {
-            return NextResponse.json({ error: 'User not found or suspended' }, { status: 404 });
+            return NextResponse.json({ error: 'User not found, suspended, or expired' }, { status: 404 });
         }
 
         // Fetch active servers for multi-node support

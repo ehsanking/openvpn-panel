@@ -32,17 +32,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkSession = async () => {
     try {
       const res = await fetch('/api/auth/session');
-      if (!res.ok) throw new Error('Session request failed');
       const contentType = res.headers.get('content-type');
+      
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
         setUser(data.user);
         setIsAdmin(data.isAdmin);
       } else {
+        const text = await res.text();
+        console.error("Non-JSON response from auth session:", text.substring(0, 100));
         throw new Error('Non-JSON response received');
       }
-    } catch (err) {
-      console.error("Session check failed", err);
+    } catch (err: any) {
+      console.error("Session check failed", err.message);
       setUser(null);
       setIsAdmin(false);
     } finally {
@@ -52,6 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
+      // Run lazy migrations
+      fetch('/api/migrate').catch(() => {});
       await checkSession();
     };
     init();

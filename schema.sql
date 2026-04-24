@@ -1,11 +1,14 @@
 CREATE TABLE IF NOT EXISTS vpn_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NULL, -- Added for client portal
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NULL,
     last_connected TIMESTAMP NULL,
     traffic_total BIGINT DEFAULT 0,
+    traffic_limit_gb INT DEFAULT 10,
+    custom_config JSON, -- Store per-user config details (tcp/udp, keepalive)
     profile_data TEXT 
 );
 
@@ -19,7 +22,19 @@ CREATE TABLE IF NOT EXISTS vpn_servers (
     load_score INT DEFAULT 0,
     status ENUM('online', 'offline') DEFAULT 'online',
     is_active BOOLEAN DEFAULT TRUE,
+    bandwidth_ingress INT DEFAULT 0, -- in Mbps or similar
+    bandwidth_egress INT DEFAULT 0,
+    latency_ms INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS server_status_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    server_id INT,
+    status ENUM('online', 'offline'),
+    load_score INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES vpn_servers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS logs (
