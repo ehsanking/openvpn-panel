@@ -64,27 +64,30 @@ Full integration, provisioning, and management for all major VPN protocols from 
 
 ## 🚀 Installation & Deployment
 
-### Quick Environment Setup
-Configure your `.env` (or `.env.local`) based on the `.env.example`:
+### ⚡ Automatic One-Line Installation (Recommended)
+You can set up the entire Power VPN Manager, including SSL via Let's Encrypt with auto-renewal, missing dependencies, and initial configuration prompts by running a single command:
 
 ```bash
-# Example Variables
-PORT=3000
-MYSQL_HOST=localhost
-MYSQL_USER=root
-MYSQL_PASSWORD=root
-MYSQL_DATABASE=vpn
+bash <(curl -Ls https://raw.githubusercontent.com/ehsanking/Power-VPN/main/install.sh)
 ```
+*The interactive installer will ask for your domain, email, MySQL details, and Admin credentials. It will automatically issue the SSL certificate and deploy the panel securely.*
 
-### Initializing the System
+---
 
-1. **Database Schema Injection**:
-   Run the schema builder against your database:
+### Manual Setup (Development / Custom)
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/ehsanking/Power-VPN.git
+   cd Power-VPN
+   ```
+
+2. **Database Schema Injection**:
+   Configure `.env` with MySQL credentials, then build the tables:
    ```bash
    mysql -u root -p < schema.sql
    ```
 
-2. **Run The Panel**:
+3. **Run The Panel**:
    ```bash
    npm install
    npm run build
@@ -96,7 +99,7 @@ MYSQL_DATABASE=vpn
 ---
 
 ## 🤝 Community & Support
-- **Author**: [Ehsan](https://github.com/ehsanking)
+- **Author**: EHSANKiNG ([@ehsanking](https://github.com/ehsanking))
 - **Contributions**: Pull requests, feature requests, and bug finding strongly encouraged!
 - **License**: MIT
 
