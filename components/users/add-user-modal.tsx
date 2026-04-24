@@ -21,6 +21,8 @@ interface AddUserModalProps {
   setMaxConnections?: (val: string) => void;
   protocol?: string;
   setProtocol?: (val: string) => void;
+  port?: string;
+  setPort?: (val: string) => void;
   expirationDays: string;
   setExpirationDays: (val: string) => void;
   trafficLimit: string;
@@ -43,8 +45,10 @@ export function AddUserModal({
   setL2tpPassword,
   maxConnections = '1',
   setMaxConnections,
-  protocol = 'udp',
+  protocol = 'openvpn',
   setProtocol,
+  port = '',
+  setPort,
   expirationDays,
   setExpirationDays,
   trafficLimit,
@@ -169,15 +173,30 @@ export function AddUserModal({
                 )}
                 {setProtocol && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Default Protocol</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Main Protocol</label>
                     <select 
                       value={protocol}
                       onChange={(e) => setProtocol(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-mono text-sm"
                     >
-                      <option value="udp">UDP (OpenVPN)</option>
-                      <option value="tcp">TCP (OpenVPN)</option>
+                      <option value="openvpn">OpenVPN</option>
+                      <option value="wireguard">WireGuard</option>
+                      <option value="cisco">Cisco AnyConnect</option>
+                      <option value="l2tp">L2TP/IPsec</option>
+                      <option value="xray">Xray (VLESS/VMess)</option>
                     </select>
+                  </div>
+                )}
+                {setPort && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Port (Optional)</label>
+                    <input 
+                      type="number"
+                      placeholder="e.g. 443"
+                      value={port}
+                      onChange={(e) => setPort(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all font-mono text-sm"
+                    />
                   </div>
                 )}
               </div>

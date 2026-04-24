@@ -18,6 +18,8 @@ export interface VpnUser {
   l2tp_password?: string;
   wg_pubkey?: string;
   xray_uuid?: string;
+  port?: number | null;
+  main_protocol?: string;
 }
 
 interface UserTableProps {
@@ -41,6 +43,7 @@ export function UserTable({ users, downloading, onDownload, onToggleStatus, onDe
               <tr className="bg-slate-50/30 border-b border-slate-100 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
               <th className="px-6 py-3">Login</th>
               <th className="px-6 py-3">Access</th>
+              <th className="px-6 py-3">Port / Protocol</th>
               <th className="px-6 py-3">Protocols & Limits</th>
               <th className="px-6 py-3">Expires On</th>
               <th className="px-6 py-3">Quota</th>
@@ -64,6 +67,18 @@ export function UserTable({ users, downloading, onDownload, onToggleStatus, onDe
                     }`}>
                       {user.status === 'active' ? 'Enabled' : 'Disabled'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      {user.port ? (
+                        <span className="text-xs font-mono font-bold text-slate-700">:{user.port}</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-medium">Any</span>
+                      )}
+                      <span className="inline-flex max-w-min items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest bg-slate-100 text-slate-600">
+                        {user.main_protocol || 'OPENVPN'}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1.5">

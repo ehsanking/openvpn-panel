@@ -23,6 +23,15 @@ Full integration, provisioning, and management for all major VPN protocols from 
 - **Cisco AnyConnect** (Ocserv)
 - **WireGuard** (wg1)
 - **L2TP/IPsec**
+- **Xray Core** (VLESS / VMess / Trojan) with auto-UUID generation & Quick Scan configs.
+
+### 🔌 Multi-Tenancy Port Architecture
+- Flexible **Port Management**: Dynamically assign ports during user provisioning.
+- **Port Reuse**: Multiple users can share the same port simultaneously on identical protocols.
+- **Conflict Prevention**: Built-in validation natively preventing protocol collisions (e.g., blocking OpenVPN and Wireguard sharing the same underlying port).
+
+### 🔔 Beautiful UI & UX Real-time Feedback
+- Integrated **SweetAlert2** for fluid, elegant, informative alerts for errors, port conflicts, and user operations.
 
 ### 🗄️ Database Scalability & Stability
 - Added robust core support for **PostgreSQL** alongside SQLite/MySQL schemas.

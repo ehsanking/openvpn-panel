@@ -52,11 +52,25 @@ export async function POST(req: Request) {
         l2tp_password,
         max_connections,
         xray_uuid,
-        xray_flow
+        xray_flow,
+        port,
+        main_protocol
       } = userData;
       
       if (!username) continue;
       
+      // Port and Protocol validation
+      if (port && main_protocol) {
+        const existingPortUsers = await query('SELECT main_protocol FROM vpn_users WHERE port = ? LIMIT 1', [port]) as any[];
+        if (existingPortUsers.length > 0) {
+          if (existingPortUsers[0].main_protocol !== main_protocol) {
+            return NextResponse.json({ 
+              error: `Port ${port} is already in use by protocol ${existingPortUsers[0].main_protocol}. Each port can only run one protocol.` 
+            }, { status: 400 });
+          }
+        }
+      }
+
       let passwordHash = null;
       if (password) {
         passwordHash = bcrypt.hashSync(password, 10);
@@ -69,8 +83,8 @@ export async function POST(req: Request) {
       try {
         await query(
           `INSERT INTO vpn_users 
-            (username, password_hash, custom_config, expires_at, traffic_limit_gb, role, cisco_password, l2tp_password, max_connections, xray_uuid, xray_flow) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+            (username, password_hash, custom_config, expires_at, traffic_limit_gb, role, cisco_password, l2tp_password, max_connections, xray_uuid, xray_flow, port, main_protocol) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
           [
             username, 
             passwordHash, 
@@ -82,7 +96,9 @@ export async function POST(req: Request) {
             l2tp_password || null,
             max_connections || 1,
             generatedXrayUuid,
-            xray_flow || ''
+            xray_flow || '',
+            port || null,
+            main_protocol || protocol || 'openvpn'
           ]
         );
         results.push(username);

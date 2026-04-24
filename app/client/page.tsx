@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Shield, Download, MapPin, Activity, QrCode, Zap, CopyIcon, Wifi, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -46,6 +46,14 @@ export default function ClientPortal() {
     return `vless://${uuid}@${host}:443?type=tcp&security=tls&flow=xtls-rprx-vision&sni=${host}#${username}-PowerVPN`;
   };
 
+  const [isExpired, setIsExpired] = useState(false);
+  
+  useEffect(() => {
+    if (user?.expires) {
+      setTimeout(() => setIsExpired(new Date(user.expires).getTime() < Date.now()), 0);
+    }
+  }, [user?.expires]);
+
   const copyXray = () => {
     if (user?.xray_uuid) {
       navigator.clipboard.writeText(generateXrayConfig(user.xray_uuid));
@@ -57,7 +65,6 @@ export default function ClientPortal() {
   if (user) {
     const isSuspended = user.status !== 'active';
     const hasRemainingTraffic = user.traffic < user.limit * 1024 * 1024 * 1024;
-    const isExpired = user.expires && new Date(user.expires).getTime() < Date.now();
 
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

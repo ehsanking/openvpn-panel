@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS vpn_users (
     wg_ip VARCHAR(50) NULL,
     xray_uuid VARCHAR(255) NULL,
     xray_flow VARCHAR(255) NULL,
+    port INT NULL,
+    main_protocol VARCHAR(50) NULL,
     custom_config JSON, -- Store per-user config details (tcp/udp, keepalive)
     profile_data TEXT,
     FOREIGN KEY (parent_id) REFERENCES vpn_users(id) ON DELETE SET NULL

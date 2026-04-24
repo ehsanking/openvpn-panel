@@ -39,6 +39,8 @@ export async function GET() {
         await pool.query('ALTER TABLE vpn_users ADD COLUMN wg_ip VARCHAR(50) NULL;');
         await pool.query('ALTER TABLE vpn_users ADD COLUMN xray_uuid VARCHAR(255) NULL;');
         await pool.query('ALTER TABLE vpn_users ADD COLUMN xray_flow VARCHAR(255) NULL;');
+        await pool.query('ALTER TABLE vpn_users ADD COLUMN port INT NULL;');
+        await pool.query('ALTER TABLE vpn_users ADD COLUMN main_protocol VARCHAR(50) NULL;');
     } catch(e: any) { console.log('user new columns mod fail: ', e.message); }
 
     try {
