@@ -8,8 +8,8 @@ import { useAuth } from '@/components/auth-provider';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import DashboardView from '@/components/views/dashboard-view';
 import { UsersView } from '@/components/views/users-view';
-import { SessionsView } from '@/components/views/sessions-view';
-import { SettingsView } from '@/components/views/settings-view';
+import SessionsView from '@/components/views/sessions-view';
+import SettingsView from '@/components/views/settings-view';
 
 type Tab = 'dashboard' | 'users' | 'sessions' | 'settings';
 

@@ -28,11 +28,11 @@ const ALLOWED_SETTING_KEYS = new Set([
 const SettingSchema = z.record(z.string(), z.string().or(z.number()));
 
 const ValidationRules: Record<string, z.ZodTypeAny> = {
-    publicIp: z.string().ip(),
+    publicIp: z.string().regex(/^(\d{1,3}\.){3}\d{1,3}$|^[0-9a-fA-F:]+$/, 'Invalid IP address'),
     port: z.union([z.string(), z.number()]).transform(v => Number(v)).pipe(z.number().int().min(1).max(65535)),
     protocol: z.enum(['udp', 'tcp']),
     cipher: z.string().min(1).max(50),
-    dnsServer: z.string().ip(),
+    dnsServer: z.string().regex(/^(\d{1,3}\.){3}\d{1,3}$/, 'Invalid IP address'),
     panelName: z.string().min(1).max(100),
 };
 

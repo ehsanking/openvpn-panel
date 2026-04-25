@@ -89,7 +89,7 @@ export async function PATCH(
       }, { status: 404 });
     }
 
-    await auditLog(null, 'USER_UPDATED', `User ${id} updated with ${JSON.stringify(validatedData.data)}`);
+    await auditLog('USER_UPDATED', 'admin', id, validatedData.data);
 
     return NextResponse.json({ message: 'User updated successfully' });
   } catch (error: any) {
@@ -124,7 +124,7 @@ export async function DELETE(
       }, { status: 404 });
     }
 
-    await auditLog(null, 'USER_DELETED', `User ${id} deleted`);
+    await auditLog('USER_DELETED', 'admin', id);
 
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error: any) {

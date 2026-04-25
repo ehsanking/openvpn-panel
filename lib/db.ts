@@ -79,6 +79,11 @@ export const query = async (sql: string, params: any[] = []): Promise<any[]> => 
   return rows as any[];
 };
 
+export const queryOne = async (sql: string, params: any[] = []): Promise<any | null> => {
+  const rows = await query(sql, params);
+  return (rows as any[])[0] ?? null;
+};
+
 export async function validateConnection() {
   if (isMockInitial) return;
   
