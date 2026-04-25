@@ -38,7 +38,7 @@ export default function SessionsView() {
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await res.json();
-        if (!data.error) setSessions(data);
+        if (!data.error) setSessions(data.sessions || []);
       }
     } catch (err) {
       console.error("Failed to fetch sessions:", err);

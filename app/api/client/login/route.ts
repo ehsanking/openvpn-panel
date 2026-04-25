@@ -43,17 +43,24 @@ export async function POST(req: Request) {
       .setExpirationTime('1h')
       .sign(secret);
 
-    const res = NextResponse.json({ 
-      success: true, 
-      user: { 
-        username: user.username, 
-        traffic: user.traffic_total, 
-        limit: user.traffic_limit_gb,
-        status: user.status,
-        expires: user.expires_at,
+    // Generate xray_uuid if user doesn't have one yet
+    let xray_uuid = user.xray_uuid;
+    if (!xray_uuid) {
+      xray_uuid = crypto.randomUUID();
+      await query('UPDATE vpn_users SET xray_uuid = ? WHERE id = ?', [xray_uuid, user.id]);
+    }
+
+    const res = NextResponse.json({
+      success: true,
+      user: {
+        username:  user.username,
+        traffic:   user.traffic_total,
+        limit:     user.traffic_limit_gb,
+        status:    user.status,
+        expires:   user.expires_at,
         wg_pubkey: user.wg_pubkey,
-        // Intentionally leaving out plain text passwords and UUIDs for security
-      } 
+        xray_uuid,
+      }
     });
     res.cookies.set('client_token', token, {
         httpOnly: true,

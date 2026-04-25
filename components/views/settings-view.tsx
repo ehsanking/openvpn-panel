@@ -89,7 +89,7 @@ export default function SettingsView() {
 
   const handleExport = async () => {
     try {
-      const res = await fetch('/api/maintenance/backup');
+      const res = await fetch('/api/backup/export');
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
@@ -112,7 +112,7 @@ export default function SettingsView() {
     reader.onload = async (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
-        const res = await fetch('/api/maintenance/restore', {
+        const res = await fetch('/api/backup/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
