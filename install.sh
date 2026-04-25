@@ -15,6 +15,23 @@ success() { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 die()     { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 
+# ── Failure summary on unexpected exit ───────────────────────────────────────
+INSTALL_OK=0
+on_exit() {
+    local rc=$?
+    if [[ "$INSTALL_OK" -eq 0 ]]; then
+        echo
+        echo -e "${RED}======================================================${NC}"
+        echo -e "${RED}   Power VPN installation FAILED (exit code ${rc})${NC}"
+        echo -e "${RED}======================================================${NC}"
+        echo -e "  Last failed command: ${YELLOW}${BASH_COMMAND:-unknown}${NC}"
+        echo -e "  Re-run the installer after fixing the cause."
+        echo -e "  Logs: ${CYAN}journalctl -xe${NC} or ${CYAN}/var/log/syslog${NC}"
+        echo -e "${RED}======================================================${NC}"
+    fi
+}
+trap on_exit EXIT
+
 require_root() {
     [[ $EUID -eq 0 ]] || die "Please run as root: sudo bash install.sh"
 }
@@ -426,20 +443,30 @@ configure_firewall() {
 
 # ── Final summary ─────────────────────────────────────────────────────────────
 print_summary() {
+    SERVER_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
     if [[ -z "${PANEL_URL:-}" ]]; then
-        SERVER_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
         PANEL_URL="http://${SERVER_IP}:${PANEL_PORT}"
     fi
+    INSTALL_OK=1
     echo
     echo -e "${GREEN}======================================================${NC}"
-    echo -e "${GREEN}   Power VPN Panel installed successfully!${NC}"
+    echo -e "${GREEN}   Power VPN Panel installed SUCCESSFULLY${NC}"
     echo -e "${GREEN}======================================================${NC}"
     echo -e "  Panel URL:      ${CYAN}${PANEL_URL}${NC}"
+    if [[ -n "${DOMAIN:-}" ]]; then
+        echo -e "  Domain:         ${CYAN}${DOMAIN}${NC}"
+    fi
+    echo -e "  Server IP:      ${CYAN}${SERVER_IP}${NC}"
+    echo -e "  Panel Port:     ${CYAN}${PANEL_PORT}${NC} (internal)"
     echo -e "  Username:       ${YELLOW}${ADMIN_USER}${NC}"
     echo -e "  Password:       ${YELLOW}${ADMIN_PASS}${NC}"
     echo -e "  Credentials:    ${CRED_FILE}"
     echo -e "  Manage panel:   ${CYAN}powervpn${NC}"
     echo -e "${GREEN}======================================================${NC}"
+    if [[ -n "${DOMAIN:-}" ]]; then
+        echo -e "${YELLOW}  Note: open ${PANEL_URL} (without :${PANEL_PORT}). The panel${NC}"
+        echo -e "${YELLOW}        port is firewalled — nginx serves it on 80/443.${NC}"
+    fi
     echo -e "${RED}  Keep credentials safe and delete ${CRED_FILE} after saving!${NC}"
     echo
 }
