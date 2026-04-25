@@ -1,7 +1,44 @@
-node_modules/
-.next/
-coverage/
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.panel_credentials.txt
+
+# Vercel
+.vercel
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
-*.log
-.env*
-!.env.example
+Thumbs.db
