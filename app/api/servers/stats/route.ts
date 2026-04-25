@@ -9,11 +9,6 @@ export async function GET() {
     // Removed direct pool.query with string manipulation here for security. In a real-world scenario, 
     // a backend task / cron job will gather these stats and insert them via parameterized queries.
     
-    // Simulate history logging occasionally (10% chance)
-    if (Math.random() < 0.1) {
-        // Not executing arbitrary statements anymore. Real applications use backend workers.
-    }
-
     // Fetch server info and join with active session counts
     const servers = await query(`
       SELECT 
