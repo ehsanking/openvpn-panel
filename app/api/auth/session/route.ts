@@ -65,7 +65,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { username, password } = await req.json();
+    const body = await req.json();
+    console.log("LOGIN_ATTEMPT_BODY:", body);
+    const username = String(body.username || '');
+    const password = String(body.password || '');
+    
+    if (!username || !password) {
+        return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+    }
 
     if (!ADMIN_PASS_HASH) {
       console.error("ADMIN_PASSWORD_HASH is not set.");
@@ -74,7 +81,9 @@ export async function POST(req: Request) {
 
     let isPasswordValid = false;
     try {
+        console.log("BCRYPT_COMPARING:", username);
         isPasswordValid = await bcrypt.compare(password, ADMIN_PASS_HASH);
+        console.log("BCRYPT_RESULT:", isPasswordValid);
     } catch(e) {
         console.error("BCrypt comparison failed:", e);
         return NextResponse.json({ error: 'Invalid password format' }, { status: 400 });
