@@ -57,10 +57,6 @@ export function SessionItem({ session, now }: SessionItemProps) {
           </p>
         </div>
       </div>
-
-      <button className="text-[10px] uppercase tracking-widest font-bold text-red-600 opacity-0 group-hover:opacity-100 hover:bg-red-50 px-3 py-1.5 rounded border border-transparent hover:border-red-100 transition-all">
-        Stop
-      </button>
     </motion.div>
   );
 }

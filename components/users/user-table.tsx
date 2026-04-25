@@ -169,7 +169,7 @@ export function UserTable({ users, downloading, onDownload, onToggleStatus, onDe
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">
+                <td colSpan={9} className="px-6 py-12 text-center text-slate-300 text-xs font-bold uppercase tracking-widest">
                   No users found
                 </td>
               </tr>
@@ -179,10 +179,6 @@ export function UserTable({ users, downloading, onDownload, onToggleStatus, onDe
       </div>
       <div className="px-6 py-3 border-t border-slate-100 bg-slate-50/30 flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase tracking-widest">
           <span>Showing {users.length} active connections</span>
-          <div className="flex gap-2">
-              <button className="px-2 py-1 border border-slate-200 rounded-md bg-white disabled:opacity-30 disabled:cursor-not-allowed">Previous</button>
-              <button className="px-2 py-1 border border-slate-200 rounded-md bg-white">Next</button>
-          </div>
       </div>
     </div>
   );

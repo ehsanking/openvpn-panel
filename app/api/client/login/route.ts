@@ -40,11 +40,8 @@ export async function POST(req: Request) {
         limit: user.traffic_limit_gb,
         status: user.status,
         expires: user.expires_at,
-        cisco_password: user.cisco_password,
-        l2tp_password: user.l2tp_password,
         wg_pubkey: user.wg_pubkey,
-        xray_uuid: user.xray_uuid,
-        xray_flow: user.xray_flow
+        // Intentionally leaving out plain text passwords and UUIDs for security
       } 
     });
     res.cookies.set('client_token', token, {

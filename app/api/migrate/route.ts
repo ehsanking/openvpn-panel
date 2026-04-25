@@ -3,6 +3,10 @@ import pool from '@/lib/db';
 
 export async function GET() {
     try {
+        await pool.query("ALTER TABLE vpn_users MODIFY COLUMN status ENUM('active', 'inactive', 'suspended') DEFAULT 'active';");
+    } catch(e: any) { console.log('user status mod fail: ', e.message); }
+
+    try {
         await pool.query('ALTER TABLE vpn_users ADD COLUMN password_hash VARCHAR(255) NULL;');
     } catch(e: any) { console.log('user password_hash mod fail: ', e.message); }
 

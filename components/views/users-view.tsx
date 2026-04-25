@@ -130,16 +130,23 @@ export default function UsersView() {
   const handleDownload = async (username: string) => {
     setDownloading(username);
     try {
-      const user = users.find(u => u.username === username);
-      let userConfig = {};
+      const res = await fetch('/api/admin/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+      });
+      const data = await res.json();
+      if (data.error) {
+          throw new Error(data.error);
+      }
       
-      // user.custom_config might be passed down if we add it to the user object.
-      // But VpnUser type might need updating. Assume default for now if not available.
+      const content = data.profile;
       
-      const content = await generateOvpnProfile(username, servers, userConfig);
+      // Keep downloadFile utility since it just triggers a blob download
       downloadFile(`${username}.ovpn`, content);
     } catch (error) {
       console.error("Error generating profile", error);
+      MySwal.fire('Error', 'Failed to generate profile', 'error');
     }
     setDownloading(null);
   };

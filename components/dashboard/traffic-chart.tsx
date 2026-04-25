@@ -24,11 +24,9 @@ export function TrafficChart() {
   return (
     <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
       <div className="flex items-center justify-between mb-8">
-        <h3 className="font-bold text-slate-800 tracking-tight">Network Usage</h3>
-        <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-100">
-          <button className="px-3 py-1 bg-white text-xs font-bold text-orange-600 rounded shadow-sm border border-slate-200">24h</button>
-          <button className="px-3 py-1 text-xs font-semibold text-slate-400 hover:text-slate-600">7d</button>
-          <button className="px-3 py-1 text-xs font-semibold text-slate-400 hover:text-slate-600">30d</button>
+        <div>
+          <h3 className="font-bold text-slate-800 tracking-tight">Network Usage</h3>
+          <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400 mt-1">Simulated Sample Data</p>
         </div>
       </div>
       <div className="h-[320px] w-full pr-4">

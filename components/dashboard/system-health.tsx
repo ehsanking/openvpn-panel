@@ -32,8 +32,9 @@ export function StatusItem({ label, value, percentage, color }: StatusItemProps)
 export function SystemHealth({ stats }: { stats: any }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
         <h3 className="font-bold text-slate-800 tracking-tight">Server Health</h3>
+        <p className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Simulated Metrics</p>
       </div>
       <div className="p-6 space-y-8 flex-1">
         <StatusItem label="CPU Load" value={(stats?.systemLoad || 0) + "%"} percentage={stats?.systemLoad || 0} color="bg-orange-600" />

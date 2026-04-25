@@ -55,8 +55,17 @@ export async function POST(req: Request) {
       }
 
       let passwordHash = null;
+      let ciscoHash = null;
+      let l2tpHash = null;
+
       if (password) {
         passwordHash = bcrypt.hashSync(password, 10);
+      }
+      if (cisco_password) {
+        ciscoHash = bcrypt.hashSync(cisco_password, 10);
+      }
+      if (l2tp_password) {
+        l2tpHash = bcrypt.hashSync(l2tp_password, 10);
       }
       
       // Auto-generate UUID if not provided so they are ready for Xray
@@ -75,8 +84,8 @@ export async function POST(req: Request) {
             expires_at || null, 
             traffic_limit_gb || 10,
             role || 'user',
-            cisco_password || null,
-            l2tp_password || null,
+            ciscoHash,
+            l2tpHash,
             max_connections || 1,
             generatedXrayUuid,
             xray_flow || '',

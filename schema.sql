@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS vpn_users (
     password_hash VARCHAR(255) NULL, -- Added for client portal
     role ENUM('admin', 'reseller', 'user') DEFAULT 'user',
     parent_id INT NULL,
-    status ENUM('active', 'inactive') DEFAULT 'active',
+    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NULL,
     last_connected TIMESTAMP NULL,
