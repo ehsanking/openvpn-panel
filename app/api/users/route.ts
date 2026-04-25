@@ -58,10 +58,10 @@ export async function POST(req: Request) {
       } = userData;
       
       // Port validation
-      if (port && main_protocol) {
-        const existingPortUsers = await query('SELECT main_protocol FROM vpn_users WHERE port = ? LIMIT 1', [port]) as any[];
-        if (existingPortUsers.length > 0 && existingPortUsers[0].main_protocol !== main_protocol) {
-             throw new Error(`Port ${port} is already in use by protocol ${existingPortUsers[0].main_protocol}.`);
+      if (port) {
+        const existingPortUsers = await query('SELECT username FROM vpn_users WHERE port = ? LIMIT 1', [port]) as any[];
+        if (existingPortUsers.length > 0) {
+             throw new Error(`Port ${port} is already in use by user ${existingPortUsers[0].username}.`);
         }
       }
 
