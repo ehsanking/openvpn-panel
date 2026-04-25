@@ -45,8 +45,21 @@ echo -e "\e[1;32m📦 Updating system and installing dependencies...\e[0m"
 apt update && apt upgrade -y
 apt install -y curl git nginx certbot python3-certbot-nginx mysql-client
 
+# 5. Installing Node.js (v20)
+if ! command -v node &> /dev/null; then
+    echo -e "\e[1;32m🟢 Installing Node.js 20...\e[0m"
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt install -y nodejs
+fi
+
+# 6. Application Installation
+echo -e "\e[1;32m📦 Installing npm dependencies...\e[0m"
+npm install
+
 # 4. Environment Setup
 echo -e "\e[1;32m📄 Creating .env configuration...\e[0m"
+ADMIN_HASH=$(node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync('$ADMIN_PASS', 10));")
+
 cat > .env <<EOF
 # Database Settings
 MYSQL_HOST=$DB_HOST
@@ -62,19 +75,8 @@ NEXTAUTH_URL=https://$DOMAIN_NAME
 # Panel Settings
 PORT=3000
 ADMIN_USERNAME=$ADMIN_USER
-ADMIN_PASSWORD=$ADMIN_PASS
+ADMIN_PASSWORD_HASH=$ADMIN_HASH
 EOF
-
-# 5. Installing Node.js (v20)
-if ! command -v node &> /dev/null; then
-    echo -e "\e[1;32m🟢 Installing Node.js 20...\e[0m"
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt install -y nodejs
-fi
-
-# 6. Application Installation
-echo -e "\e[1;32m📦 Installing npm dependencies...\e[0m"
-npm install
 
 echo -e "\e[1;32m🛠 Building the application...\e[0m"
 npm run build

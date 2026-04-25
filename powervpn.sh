@@ -60,7 +60,10 @@ while true; do
             read -s new_pass
             echo ""
             if [[ -n "$new_pass" ]]; then
-                update_env "ADMIN_PASSWORD" "$new_pass"
+                new_hash=$(node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync('$new_pass', 10));")
+                update_env "ADMIN_PASSWORD_HASH" "$new_hash"
+                # Remove plain text just in case it exists in older env file
+                sed -i '/^ADMIN_PASSWORD=/d' "$ENV_FILE"
                 echo -e "\e[1;32mPassword updated in .env\e[0m (Please restart the panel services to apply)"
             fi
             sleep 2

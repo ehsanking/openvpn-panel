@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import * as jose from 'jose';
+import bcrypt from 'bcryptjs';
 
 const ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASSWORD || 'password';
+const ADMIN_PASS_HASH = process.env.ADMIN_PASSWORD_HASH;
+const LEGACY_ADMIN_PASS = process.env.ADMIN_PASSWORD || 'password';
 
 async function getSecret() {
     if (process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32) {
@@ -38,7 +40,11 @@ export async function POST(req: Request) {
   try {
     const { username, password } = await req.json();
 
-    if (username === ADMIN_USER && password === ADMIN_PASS) {
+    const isPasswordValid = ADMIN_PASS_HASH 
+        ? bcrypt.compareSync(password, ADMIN_PASS_HASH)
+        : password === LEGACY_ADMIN_PASS;
+
+    if (username === ADMIN_USER && isPasswordValid) {
       const cookieStore = await cookies();
       const secret = await getSecret();
       const token = await new jose.SignJWT({ role: 'admin' })
