@@ -74,6 +74,14 @@ const poolProxy = {
   }
 };
 
+// Named helper used by API routes: returns rows directly (the first element
+// of the [rows, fields] tuple from mysql2). Routes call e.g.
+// `const rows = await query('SELECT ...');`
+export async function query<T = any>(sql: string, params: any[] = []): Promise<T> {
+  const result: any = await activePool.execute(sql, params);
+  return Array.isArray(result) ? (result[0] as T) : (result as T);
+}
+
 export async function validateConnection() {
   if (isMockInitial) return;
   

@@ -303,7 +303,17 @@ ENV
 build_app() {
     info "Building Next.js application (this takes a few minutes)…"
     cd "$INSTALL_DIR"
-    sudo -u "$SERVICE_USER" npm run build 2>&1 | tail -10
+    # Capture full build output so failures are diagnosable; only tail on
+    # success to keep the log readable.
+    local log="${INSTALL_DIR}/logs/build.log"
+    mkdir -p "${INSTALL_DIR}/logs"
+    if ! sudo -u "$SERVICE_USER" npm run build > "$log" 2>&1; then
+        echo
+        warn "npm run build failed — last 60 lines of ${log}:"
+        tail -60 "$log" >&2
+        die "Build failed. Full log: ${log}"
+    fi
+    tail -5 "$log"
     success "Build complete."
 }
 
