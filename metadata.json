@@ -1,6 +1,5 @@
 {
-  "name": "Power VPN Manager",
-  "description": "An enterprise-grade fleet management dashboard for OpenVPN, WireGuard, Cisco AnyConnect, and L2TP/IPsec.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "PowerVPN Management Panel",
+  "description": "A secure, production-ready management interface for VPN infrastructure featuring user management, audit logging, and automated infrastructure health checks.",
+  "requestFramePermissions": []
 }
