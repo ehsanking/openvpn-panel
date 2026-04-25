@@ -11,6 +11,14 @@ export async function GET() {
     } catch(e: any) { console.log('user password_hash mod fail: ', e.message); }
 
     try {
+        await pool.query('ALTER TABLE vpn_users ADD COLUMN client_cert TEXT NULL;');
+    } catch(e: any) { console.log('user client_cert mod fail: ', e.message); }
+
+    try {
+        await pool.query('ALTER TABLE vpn_users ADD COLUMN client_key TEXT NULL;');
+    } catch(e: any) { console.log('user client_key mod fail: ', e.message); }
+
+    try {
         await pool.query('ALTER TABLE vpn_users ADD COLUMN custom_config JSON NULL;');
     } catch(e: any) { console.log('user custom_config mod fail: ', e.message); }
 

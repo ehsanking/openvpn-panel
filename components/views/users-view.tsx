@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
-import { generateOvpnProfile, downloadFile } from '@/lib/ovpn-generator';
 import { UserTable, type VpnUser } from '@/components/users/user-table';
 import { AddUserModal } from '@/components/users/add-user-modal';
 import { UserToolbar } from '@/components/users/user-toolbar';
@@ -143,7 +142,13 @@ export default function UsersView() {
       const content = data.profile;
       
       // Keep downloadFile utility since it just triggers a blob download
-      downloadFile(`${username}.ovpn`, content);
+      const element = document.createElement('a');
+      const file = new Blob([content], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = username + '.ovpn';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
     } catch (error) {
       console.error("Error generating profile", error);
       MySwal.fire('Error', 'Failed to generate profile', 'error');

@@ -1,3 +1,6 @@
+import { query } from './db';
+import { generateCA, generateClientCert, generateTlsAuthKey } from './pki';
+
 export async function generateOvpnProfile(
   username: string, 
   servers: any[] = [],
@@ -25,11 +28,42 @@ export async function generateOvpnProfile(
       }).join('\n')
     : `remote 45.12.99.1 1194`;
 
-  // Placeholder certs - In production, these should be fetched from the secure Cert Service
-  const ca = `-----BEGIN CERTIFICATE-----\nCA_CERT_HERE\n-----END CERTIFICATE-----`;
-  const cert = `-----BEGIN CERTIFICATE-----\nCLIENT_CERT_FOR_${username.toUpperCase()}\n-----END CERTIFICATE-----`;
-  const key = `-----BEGIN PRIVATE KEY-----\nCLIENT_KEY_FOR_${username.toUpperCase()}\n-----END PRIVATE KEY-----`;
-  const tlsAuth = `-----BEGIN OpenVPN Static key V1-----\nTLS_AUTH_KEY\n-----END OpenVPN Static key V1-----`;
+  // Fetch CA and TLS Auth from settings
+  let caCertPem = '';
+  let caKeyPem = '';
+  let tlsAuthKey = '';
+  const settingsRows: any[] = await query('SELECT `key`, `value` FROM settings WHERE `key` IN ("caCert", "caPrivateKey", "tlsAuthKey")');
+  const settingsMap = new Map(settingsRows.map(r => [r.key, r.value]));
+
+  if (settingsMap.has('caCert') && settingsMap.get('caCert') !== 'PENDING_CA_GENERATION') {
+      caCertPem = settingsMap.get('caCert');
+      caKeyPem = settingsMap.get('caPrivateKey') || '';
+      tlsAuthKey = settingsMap.get('tlsAuthKey') || '';
+  } else {
+      const newCa = generateCA();
+      caCertPem = newCa.cert;
+      caKeyPem = newCa.privateKey;
+      tlsAuthKey = generateTlsAuthKey();
+      
+      await query('INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?', ['caCert', caCertPem, caCertPem]);
+      await query('INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?', ['caPrivateKey', caKeyPem, caKeyPem]);
+      await query('INSERT INTO settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = ?', ['tlsAuthKey', tlsAuthKey, tlsAuthKey]);
+  }
+
+  const userRows: any[] = await query('SELECT client_cert, client_key FROM vpn_users WHERE username = ?', [username]);
+  if (userRows.length === 0) {
+      throw new Error("User not found in DB to generate certificate");
+  }
+
+  let clientCertPem = userRows[0].client_cert;
+  let clientKeyPem = userRows[0].client_key;
+
+  if (!clientCertPem || !clientKeyPem) {
+      const clientPair = generateClientCert(username, caCertPem, caKeyPem);
+      clientCertPem = clientPair.cert;
+      clientKeyPem = clientPair.privateKey;
+      await query('UPDATE vpn_users SET client_cert = ?, client_key = ? WHERE username = ?', [clientCertPem, clientKeyPem, username]);
+  }
 
   return `client
 dev tun
@@ -49,16 +83,16 @@ connect-retry 1
 connect-timeout 5
 
 <ca>
-${ca}
+${caCertPem}
 </ca>
 <cert>
-${cert}
+${clientCertPem}
 </cert>
 <key>
-${key}
+${clientKeyPem}
 </key>
 <tls-auth>
-${tlsAuth}
+${tlsAuthKey}
 </tls-auth>`;
 }
 
