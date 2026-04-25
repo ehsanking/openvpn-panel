@@ -20,8 +20,8 @@ export async function GET() {
       activeSessions: activeSessions[0]?.count || 0,
       onlineServers: serverCount[0]?.count || 0,
       totalTraffic: totalTraffic[0]?.total || 0,
-      systemLoad: 12, // This would ideally come from os.loadavg() but for SQL demo we hardcode or fetch from a metrics table
-      uptimeDays: 142
+      systemLoad: 0,
+      uptimeDays: 0
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

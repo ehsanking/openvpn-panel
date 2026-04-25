@@ -20,43 +20,12 @@ const pool = mysql.createPool(poolConfig);
 
 export default pool;
 
-// Simple in-memory mutex simulating GLOBAL_SYNC_LOCK
-let isLocked = false;
-const writeQueue: (() => void)[] = [];
-
-async function acquireLock() {
-    return new Promise<void>((resolve) => {
-        if (!isLocked) {
-            isLocked = true;
-            resolve();
-        } else {
-            writeQueue.push(resolve);
-        }
-    });
-}
-
-function releaseLock() {
-    if (writeQueue.length > 0) {
-        const next = writeQueue.shift();
-        next && next();
-    } else {
-        isLocked = false;
-    }
-}
-
 export async function query<T = any>(sql: string, params?: any[]): Promise<T> {
-  const isWrite = /^\s*(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE)/i.test(sql);
-  if (isWrite) {
-      await acquireLock();
-  }
-  
   try {
     const [rows] = await pool.execute(sql, params);
     return rows as T;
   } catch (err: any) {
     console.error('Database query error:', err.message);
     throw err;
-  } finally {
-    if (isWrite) releaseLock();
   }
 }

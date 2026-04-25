@@ -5,26 +5,9 @@ import crypto from 'crypto';
 
 export async function GET() {
   try {
-    // Migration: Add traffic_limit_gb if not exists (Lazy migration)
-    try {
-      await query('ALTER TABLE vpn_users ADD COLUMN traffic_limit_gb INT DEFAULT 10');
-    } catch (e) {
-      // Column likely already exists
-    }
-
-    // Auto-suspend expired users
-    await query('UPDATE vpn_users SET status = "suspended" WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP AND status = "active"');
+    // Note: Migrations are handled centrally in /api/migrate now
+    // Note: Auto-suspensions are handled by backend cron jobs
     
-    // Auto-suspend users who exceeded traffic limit
-    // 1 GB = 1073741824 bytes
-    await query(`
-      UPDATE vpn_users 
-      SET status = 'suspended' 
-      WHERE status = 'active' 
-      AND traffic_limit_gb IS NOT NULL 
-      AND traffic_total >= (traffic_limit_gb * 1073741824)
-    `);
-
     const users = await query('SELECT * FROM vpn_users ORDER BY id DESC');
     return NextResponse.json(users);
   } catch (error: any) {
