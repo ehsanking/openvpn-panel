@@ -62,7 +62,6 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    console.log("LOGIN_ATTEMPT_BODY:", body);
     const username = String(body.username || '');
     const password = String(body.password || '');
     
@@ -71,17 +70,13 @@ export async function POST(req: Request) {
     }
 
     if (!ADMIN_PASS_HASH) {
-      console.error("ADMIN_PASSWORD_HASH is not set.");
       return NextResponse.json({ error: 'Internal Server Error: No Hash' }, { status: 500 });
     }
 
     let isPasswordValid = false;
     try {
-        console.log("BCRYPT_COMPARING:", username);
         isPasswordValid = await bcrypt.compare(password, ADMIN_PASS_HASH);
-        console.log("BCRYPT_RESULT:", isPasswordValid);
     } catch(e) {
-        console.error("BCrypt comparison failed:", e);
         return NextResponse.json({ error: 'Invalid password format' }, { status: 400 });
     }
 

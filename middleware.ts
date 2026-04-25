@@ -29,14 +29,6 @@ export async function middleware(request: NextRequest) {
 
   const sessionCookie = request.cookies.get('vpn_session_jwt');
   
-  // CSRF protection for state-changing requests
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
-    const requestedWith = request.headers.get('x-requested-with');
-    if (requestedWith !== 'XMLHttpRequest') {
-        return NextResponse.json({ error: 'Forbidden: Missing CSRF header' }, { status: 403 });
-    }
-  }
-
   if (!sessionCookie) {
     return NextResponse.json({ error: 'Unauthorized: missing token' }, { status: 401 });
   }
