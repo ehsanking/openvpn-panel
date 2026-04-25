@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const users: any[] = await query('SELECT * FROM vpn_users');
-        const servers: any[] = await query('SELECT * FROM vpn_servers');
-        const settings: any[] = await query('SELECT * FROM settings');
-        const resellers: any[] = await query('SELECT * FROM reseller_limits');
+        const users: any[] = await query('SELECT id, username, role, parent_id, status, traffic_limit_gb, traffic_total, traffic_up, traffic_down, max_connections, port, main_protocol, expires_at, created_at, last_connected FROM vpn_users');
+        const servers: any[] = await query('SELECT id, name, ip_address, domain, protocol, status, is_active, load_score, connected_clients, bandwidth_ingress, bandwidth_egress, latency_ms, last_check, ports, supports_openvpn, supports_cisco, supports_l2tp, supports_wireguard, supports_xray FROM vpn_servers');
+        const settings: any[] = await query('SELECT `key`, `value` FROM settings');
+        const resellers: any[] = await query('SELECT id, reseller_id, max_users, allocated_traffic_gb FROM reseller_limits');
         
         const backup = {
             version: '2.0',
