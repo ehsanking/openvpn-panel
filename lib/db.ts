@@ -41,8 +41,6 @@ class MockPool {
   }
 }
 
-const isMock = process.env.MYSQL_HOST === undefined && process.env.NODE_ENV !== 'production';
-
 let activePool: any;
 
 const isMockInitial = process.env.MYSQL_HOST === undefined && process.env.NODE_ENV !== 'production';

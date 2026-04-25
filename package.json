@@ -1,11 +1,11 @@
 {
-  "name": "applet",
+  "name": "PowerVpn",
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -13,6 +13,8 @@
     "bcryptjs": "latest",
     "better-sqlite3": "^12.9.0",
     "clsx": "latest",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
     "jose": "latest",
     "lucide-react": "latest",
     "motion": "latest",
@@ -23,6 +25,7 @@
     "react-hook-form": "^7.73.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "latest",
+    "typescript-eslint": "^8.59.0",
     "zod": "latest"
   },
   "devDependencies": {
