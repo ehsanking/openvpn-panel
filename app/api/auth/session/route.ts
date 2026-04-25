@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import * as jose from 'jose';
 import bcrypt from 'bcryptjs';
 
@@ -8,6 +8,26 @@ export const dynamic = 'force-dynamic';
 const ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASS_HASH = process.env.ADMIN_PASSWORD_HASH;
 // Removed LEGACY_ADMIN_PASS
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const MAX_ATTEMPTS = 5;
+
+function isRateLimited(ip: string): boolean {
+    const now = Date.now();
+    const data = rateLimitMap.get(ip) || { count: 0, lastReset: now };
+    
+    if (now - data.lastReset > RATE_LIMIT_WINDOW_MS) {
+        data.count = 1;
+        data.lastReset = now;
+    } else {
+        data.count++;
+    }
+    
+    rateLimitMap.set(ip, data);
+    return data.count > MAX_ATTEMPTS;
+}
 
 async function getSecret() {
     if (process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32) {
@@ -39,6 +59,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const ip = (await headers()).get('x-forwarded-for') || 'unknown';
+  if (isRateLimited(ip)) {
+      return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+  }
+
   try {
     const { username, password } = await req.json();
 
@@ -49,7 +74,7 @@ export async function POST(req: Request) {
 
     let isPasswordValid = false;
     try {
-        isPasswordValid = bcrypt.compareSync(password, ADMIN_PASS_HASH);
+        isPasswordValid = await bcrypt.compare(password, ADMIN_PASS_HASH);
     } catch(e) {
         console.error("BCrypt comparison failed:", e);
         return NextResponse.json({ error: 'Invalid password format' }, { status: 400 });
