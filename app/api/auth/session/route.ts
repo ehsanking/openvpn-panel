@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASS_HASH = process.env.ADMIN_PASSWORD_HASH;
-const LEGACY_ADMIN_PASS = process.env.ADMIN_PASSWORD || 'password';
+// Removed LEGACY_ADMIN_PASS
 
 async function getSecret() {
     if (process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32) {
@@ -42,9 +42,18 @@ export async function POST(req: Request) {
   try {
     const { username, password } = await req.json();
 
-    const isPasswordValid = ADMIN_PASS_HASH 
-        ? bcrypt.compareSync(password, ADMIN_PASS_HASH)
-        : password === LEGACY_ADMIN_PASS;
+    if (!ADMIN_PASS_HASH) {
+      console.error("ADMIN_PASSWORD_HASH is not set.");
+      return NextResponse.json({ error: 'Internal Server Error: No Hash' }, { status: 500 });
+    }
+
+    let isPasswordValid = false;
+    try {
+        isPasswordValid = bcrypt.compareSync(password, ADMIN_PASS_HASH);
+    } catch(e) {
+        console.error("BCrypt comparison failed:", e);
+        return NextResponse.json({ error: 'Invalid password format' }, { status: 400 });
+    }
 
     if (username === ADMIN_USER && isPasswordValid) {
       const cookieStore = await cookies();

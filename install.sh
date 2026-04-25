@@ -78,6 +78,11 @@ npm install
 echo -e "\e[1;32m📄 Creating .env configuration...\e[0m"
 ADMIN_HASH=$(node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync('$ADMIN_PASS', 10));")
 
+if [ -z "$ADMIN_HASH" ]; then
+    echo -e "\e[1;31m❌ Failed to generate admin password hash. Installation stopped.\e[0m"
+    exit 1
+fi
+
 cat > .env <<EOF
 # Database Settings
 MYSQL_HOST=$DB_HOST
