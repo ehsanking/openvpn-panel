@@ -10,7 +10,7 @@ import { handleApiError } from '@/lib/api-utils';
 export const dynamic = 'force-dynamic';
 
 const CreateUserSchema = z.object({
-  username: z.string().min(1),
+  username: z.string().min(3).max(63).regex(/^[a-zA-Z0-9._-]+$/),
   password: z.string().optional().nullable(),
   protocol: z.string().optional(),
   expires_at: z.string().optional().nullable(),
@@ -66,8 +66,8 @@ export async function POST(req: Request) {
       }
 
       let passwordHash = password ? bcrypt.hashSync(password, 10) : null;
-      let ciscoHash = cisco_password ? encrypt(cisco_password) : null;
-      let l2tpHash = l2tp_password ? encrypt(l2tp_password) : null;
+      let ciscoHash = cisco_password ? bcrypt.hashSync(cisco_password, 10) : null;
+      let l2tpHash = l2tp_password ? bcrypt.hashSync(l2tp_password, 10) : null;
       
       const generatedXrayUuid = xray_uuid || crypto.randomUUID();
       const customConfig = JSON.stringify({ protocol: protocol || 'udp' });

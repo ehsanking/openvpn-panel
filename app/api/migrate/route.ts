@@ -60,7 +60,8 @@ export async function GET(req: Request) {
             'ALTER TABLE vpn_servers ADD COLUMN supports_cisco BOOLEAN DEFAULT FALSE;',
             'ALTER TABLE vpn_servers ADD COLUMN supports_l2tp BOOLEAN DEFAULT FALSE;',
             'ALTER TABLE vpn_servers ADD COLUMN supports_wireguard BOOLEAN DEFAULT FALSE;',
-            'ALTER TABLE vpn_servers ADD COLUMN supports_xray BOOLEAN DEFAULT FALSE;'
+            'ALTER TABLE vpn_servers ADD COLUMN supports_xray BOOLEAN DEFAULT FALSE;',
+            'ALTER TABLE vpn_users ADD COLUMN password_changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;'
         ];
 
         for (const sql of migrations) {

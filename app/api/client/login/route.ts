@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import * as jose from 'jose';
+import { isRateLimited } from '@/lib/rate-limit';
+import { auditLog } from '@/lib/audit-logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  const ip = (await headers()).get('x-forwarded-for') || 'unknown';
+  if (isRateLimited(ip)) {
+      return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+  }
+
   try {
     const { username, password } = await req.json();
     if (!username || !password) return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
@@ -19,11 +27,12 @@ export async function POST(req: Request) {
 
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
+      await auditLog('client_login_failed', 'anonymous', username, { username });
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-       throw new Error("JWT_SECRET missing or too short");
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 64) {
+       throw new Error("JWT_SECRET missing or too weak (min 64 chars required)");
     }
 
     // Generate JWT using jose
@@ -53,8 +62,10 @@ export async function POST(req: Request) {
         maxAge: 3600 // 1 hr
     });
 
+    await auditLog('client_login_success', 'user', user.username, { username: user.username });
     return res;
   } catch (error: any) {
+    await auditLog('client_login_error', 'system', 'unknown', { error: error.message });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

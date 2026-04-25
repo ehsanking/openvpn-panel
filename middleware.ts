@@ -2,11 +2,23 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import * as jose from 'jose';
 import { getJwtSecret } from '@/lib/auth-utils';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export async function middleware(request: NextRequest) {
+  // HTTPS enforcement
+  if (process.env.NODE_ENV === 'production' && request.headers.get('x-forwarded-proto') !== 'https') {
+      return NextResponse.redirect(`https://${request.headers.get('host')}${request.nextUrl.pathname}`, 301);
+  }
+
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
   if (!isApiRoute) {
     return NextResponse.next();
+  }
+
+  // General Rate Limiting for APIs
+  const ip = request.headers.get('x-forwarded-for') || 'unknown';
+  if (isRateLimited(ip, 60)) { // 60 requests per minute
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
   // Exempt routes
@@ -18,14 +30,11 @@ export async function middleware(request: NextRequest) {
   
   // Protect /api/migrate specifically
   if (request.nextUrl.pathname === '/api/migrate') {
-      // Basic block, perhaps require a local dev environment or specific token.
-      // Easiest is to block it once production or check an env var
       if (process.env.ALLOW_MIGRATION !== 'true') {
          return NextResponse.json({ error: 'Migration forbidden' }, { status: 403 });
       }
       return NextResponse.next();
   }
-
 
   const sessionCookie = request.cookies.get('vpn_session_jwt');
   
@@ -37,11 +46,26 @@ export async function middleware(request: NextRequest) {
     const secret = await getJwtSecret();
     const { payload } = await jose.jwtVerify(sessionCookie.value, secret);
     
-    if (payload.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden. Admin access required.' }, { status: 403 });
+    // RBAC
+    const path = request.nextUrl.pathname;
+    const role = payload.role as string;
+
+    if (path.startsWith('/api/admin') && role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden. Admin access required.' }, { status: 403 });
+    }
+
+    if (path.startsWith('/api/users') && !['admin', 'reseller'].includes(role)) {
+        return NextResponse.json({ error: 'Forbidden. Admin or Reseller access required.' }, { status: 403 });
     }
     
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // Security headers
+    response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+
+    return response;
   } catch (error) {
     return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
   }

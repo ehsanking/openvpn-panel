@@ -25,9 +25,9 @@ export async function GET(req: Request) {
     const users: any[] = await query('SELECT * FROM vpn_users WHERE id = ?', [payload.id]);
     const user = users[0];
 
-    // Added revocation and suspension check
-    if (!user || user.status !== 'active') {
-       return new NextResponse('User account suspended or not found. Cannot download profile.', { status: 403 });
+    // Added revocation, suspension and expiry check
+    if (!user || user.status !== 'active' || (user.expires_at && new Date(user.expires_at) < new Date())) {
+       return new NextResponse('User account expired, suspended or not found. Cannot download profile.', { status: 403 });
     }
 
     // 1. Select the least loaded active server
