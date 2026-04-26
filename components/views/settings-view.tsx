@@ -2,18 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Save, 
   RotateCcw, 
   Shield, 
   Globe, 
   Lock, 
-  Cpu, 
   FileText,
   AlertCircle,
-  Database,
-  CheckCircle2
+  Database
 } from 'lucide-react';
-import { motion } from 'motion/react';
 
 interface ServerConfig {
   publicIp: string;
@@ -97,7 +93,7 @@ export default function SettingsView() {
       a.href = url;
       a.download = `vpn-panel-backup-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
-    } catch (err) {
+    } catch (_err) {
       alert("Snapshot generation failed");
     }
   };
@@ -124,7 +120,7 @@ export default function SettingsView() {
         } else {
           alert("Restore rejected: " + result.error);
         }
-      } catch (err) {
+      } catch (_err) {
         alert("Invalid snapshot format");
       }
     };

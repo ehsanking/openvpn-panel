@@ -1,10 +1,19 @@
+CREATE TABLE IF NOT EXISTS vpn_inbounds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,
+    protocol VARCHAR(50) NOT NULL,
+    port INT NOT NULL,
+    remark TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS vpn_users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     username VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NULL, -- Added for client portal
-    role ENUM('admin', 'reseller', 'user') DEFAULT 'user',
+    password_hash VARCHAR(255) NULL,
+    role VARCHAR(50) DEFAULT 'user',
     parent_id INT NULL,
-    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
+    status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NULL,
     last_connected TIMESTAMP NULL,
@@ -19,15 +28,24 @@ CREATE TABLE IF NOT EXISTS vpn_users (
     xray_flow VARCHAR(255) NULL,
     port INT NULL,
     main_protocol VARCHAR(50) NULL,
-    custom_config JSON, -- Store per-user config details (tcp/udp, keepalive)
+    custom_config TEXT,
     profile_data TEXT,
-    FOREIGN KEY (parent_id) REFERENCES vpn_users(id) ON DELETE SET NULL,
-    INDEX idx_vpn_users_port (port),
-    INDEX idx_users_status_expires (status, expires_at)
+    FOREIGN KEY (parent_id) REFERENCES vpn_users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_vpn_users_port ON vpn_users (port);
+CREATE INDEX IF NOT EXISTS idx_users_status_expires ON vpn_users (status, expires_at);
+
+CREATE TABLE IF NOT EXISTS user_inbounds (
+    user_id INT NOT NULL,
+    inbound_id INT NOT NULL,
+    PRIMARY KEY (user_id, inbound_id),
+    FOREIGN KEY (user_id) REFERENCES vpn_users(id) ON DELETE CASCADE,
+    FOREIGN KEY (inbound_id) REFERENCES vpn_inbounds(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS reseller_limits (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     reseller_id INT NOT NULL,
     max_users INT DEFAULT 50,
     allocated_traffic_gb INT DEFAULT 500,
@@ -35,69 +53,72 @@ CREATE TABLE IF NOT EXISTS reseller_limits (
 );
 
 CREATE TABLE IF NOT EXISTS vpn_servers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(255) NOT NULL,
     ip_address VARCHAR(45) NOT NULL,
     domain VARCHAR(255),
-    ports JSON, -- Array of ports [1194, 443, etc]
-    protocol ENUM('udp', 'tcp') DEFAULT 'udp',
+    ports TEXT,
+    protocol VARCHAR(50) DEFAULT 'udp',
     supports_openvpn BOOLEAN DEFAULT TRUE,
     supports_cisco BOOLEAN DEFAULT FALSE,
     supports_l2tp BOOLEAN DEFAULT FALSE,
     supports_wireguard BOOLEAN DEFAULT FALSE,
     supports_xray BOOLEAN DEFAULT FALSE,
     load_score INT DEFAULT 0,
-    status ENUM('online', 'offline') DEFAULT 'online',
+    status VARCHAR(50) DEFAULT 'online',
     is_active BOOLEAN DEFAULT TRUE,
-    bandwidth_ingress INT DEFAULT 0, -- in Mbps or similar
+    bandwidth_ingress INT DEFAULT 0,
     bandwidth_egress INT DEFAULT 0,
     latency_ms INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS server_status_history (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     server_id INT,
-    status ENUM('online', 'offline'),
+    status VARCHAR(50),
     load_score INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (server_id) REFERENCES vpn_servers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    level ENUM('info', 'warn', 'error') DEFAULT 'info',
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level VARCHAR(50) DEFAULT 'info',
     message TEXT,
-    context JSON, -- Additional metadata
+    context TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INT,
     server_id INT,
     username VARCHAR(255),
     ip_address VARCHAR(45),
     start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     end_time TIMESTAMP NULL,
-    status ENUM('active', 'disconnected') DEFAULT 'active',
+    status VARCHAR(50) DEFAULT 'active',
     FOREIGN KEY (user_id) REFERENCES vpn_users(id) ON DELETE SET NULL,
-    FOREIGN KEY (server_id) REFERENCES vpn_servers(id) ON DELETE SET NULL,
-    INDEX idx_sessions_server_status (server_id, status)
+    FOREIGN KEY (server_id) REFERENCES vpn_servers(id) ON DELETE SET NULL
 );
 
--- Seed initial server
-INSERT IGNORE INTO vpn_servers (name, ip_address, ports, protocol) VALUES 
-('Node-01-Main', '45.12.99.1', '[1194, 443]', 'udp');
+CREATE INDEX IF NOT EXISTS idx_sessions_server_status ON sessions (server_id, status);
+
+INSERT OR IGNORE INTO vpn_servers (id, name, ip_address, ports, protocol) VALUES 
+(1, 'Node-01-Main', '45.12.99.1', '[1194, 443]', 'udp');
 
 CREATE TABLE IF NOT EXISTS settings (
     `key` VARCHAR(255) PRIMARY KEY,
     `value` TEXT
 );
 
--- Seed initial settings
-INSERT IGNORE INTO settings (`key`, `value`) VALUES 
+INSERT OR IGNORE INTO settings (`key`, `value`) VALUES 
 ('panelName', 'OpenVPN Control Plane'),
 ('defaultCipher', 'AES-256-GCM'),
 ('defaultDns', '1.1.1.1'),
 ('caCert', 'PENDING_CA_GENERATION');
+
+INSERT OR IGNORE INTO vpn_users (id, username, role, status, traffic_total) VALUES
+(1, 'admin', 'admin', 'active', 15200000000);
+

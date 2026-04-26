@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Globe } from 'lucide-react';
-import { StatCard } from '@/components/dashboard/stat-card';
-import { SystemHealth } from '@/components/dashboard/system-health';
-import { TrafficChart } from '@/components/dashboard/traffic-chart';
-import { UserConsumptionChart } from '@/components/dashboard/user-consumption-chart';
-import { ServerStatusList } from '@/components/dashboard/server-status-list';
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { ArrowUp, ArrowDown } from 'lucide-react';
+
+// Generates an initial array of fake data points for the mini charts
+const generateChartData = (length: number, max: number) => 
+  Array.from({ length }).map((_, i) => ({ value: Math.floor(Math.random() * max) }));
 
 export default function DashboardView() {
   const [stats, setStats] = useState<any>(null);
@@ -14,17 +14,29 @@ export default function DashboardView() {
   const [servers, setServers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [cpuData, setCpuData] = useState(generateChartData(15, 100));
+  const [ramData, setRamData] = useState(generateChartData(15, 100));
+
+  useEffect(() => {
+    // Fake real-time data for charts
+    const chartInterval = setInterval(() => {
+      setCpuData(prev => [...prev.slice(1), { value: Math.floor(Math.random() * Math.random() * 100) }]);
+      setRamData(prev => [...prev.slice(1), { value: Math.floor(Math.random() * 50 + 20) }]);
+    }, 2000);
+    return () => clearInterval(chartInterval);
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const fetchJson = async (url: string) => {
           const res = await fetch(url);
-          const contentType = res.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            return res.json();
+          if (res.ok) {
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              return res.json();
+            }
           }
-          const text = await res.text();
-          console.error(`Non-JSON response from ${url}:`, text.substring(0, 100));
           return { error: 'Invalid response format' };
         };
 
@@ -51,68 +63,132 @@ export default function DashboardView() {
 
   if (loading) return <div className="p-8 text-xs font-bold text-slate-400 animate-pulse uppercase tracking-[0.2em]">Loading Dashboard...</div>;
 
-  const topUsersData = users
-    .filter(u => u.traffic_total > 0)
-    .sort((a, b) => b.traffic_total - a.traffic_total)
-    .slice(0, 6)
-    .map(u => ({
-      name: u.username,
-      traffic: Math.round(u.traffic_total / (1024 * 1024)) // MB
-    }));
-
-  const trafficFormatted = stats?.totalTraffic 
-    ? (stats.totalTraffic > 1024 * 1024 * 1024 
-        ? (stats.totalTraffic / 1024 / 1024 / 1024).toFixed(2) + ' GB' 
-        : (stats.totalTraffic / 1024 / 1024).toFixed(2) + ' MB') 
-    : '0 MB';
+  const totalUsers = stats?.totalUsers || 0;
+  const activeUsers = stats?.activeUsers || 0;
+  const deactiveUsers = totalUsers - activeUsers;
+  const onlineSessions = stats?.activeSessions || 0;
+  
+  const resellerCount = users.filter((u) => u.role === 'reseller').length;
+  const nodesCount = servers.length;
 
   return (
-    <div className="space-y-10">
-      <header className="flex justify-between items-end">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-1">Dashboard</h2>
-          <p className="text-sm text-slate-500">Monitor your users and network health.</p>
-        </div>
+    <div className="space-y-6">
+      <header className="mb-8">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-1">Dashboard</h2>
+        <p className="text-sm text-slate-500">Monitor your system status and active VPN nodes.</p>
       </header>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Users" 
-          value={stats?.activeUsers?.toString() || "0"} 
-          change={`${stats?.activeSessions || 0} Online`} 
-          trend="up"
-        />
-        <StatCard 
-          title="Total Data" 
-          value={trafficFormatted} 
-          change="Network usage" 
-          trend="up"
-        />
-        <StatCard 
-          title="CPU Load" 
-          value={(stats?.systemLoad || 0) + "%"} 
-          change="System Stable" 
-          trend="up"
-          showProgress
-          progressValue={stats?.systemLoad || 0}
-        />
-        <StatCard 
-          title="Active Nodes" 
-          value={stats?.onlineServers?.toString() || "0"} 
-          change="Global reach" 
-          trend="up"
-        />
+      {/* Top Row: System Metrics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-48">
+          <div className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={cpuData}>
+                <defs>
+                  <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex justify-between items-end">
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">CPU</span>
+            <span className="text-xl font-bold text-slate-800">{cpuData[cpuData.length - 1].value}%</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between h-48">
+          <div className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={ramData}>
+                <defs>
+                  <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorRam)" isAnimationActive={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex justify-between items-end">
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">RAM</span>
+            <span className="text-xl font-bold text-slate-800">{ramData[ramData.length - 1].value}%</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center h-48">
+          <div className="flex w-full items-center justify-around h-full">
+            <div className="flex flex-col items-center">
+              <div className="p-3 bg-red-50 text-red-500 rounded-full mb-3">
+                <ArrowUp size={28} strokeWidth={2.5} />
+              </div>
+              <span className="text-2xl font-bold text-slate-800 mb-1">{(Math.random() * 50 + 10).toFixed(1)} <span className="text-base text-slate-400 font-medium">MB/s</span></span>
+              <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Upload</span>
+            </div>
+            <div className="w-px h-24 bg-slate-100"></div>
+            <div className="flex flex-col items-center">
+              <div className="p-3 bg-green-50 text-green-500 rounded-full mb-3">
+                <ArrowDown size={28} strokeWidth={2.5} />
+              </div>
+              <span className="text-2xl font-bold text-slate-800 mb-1">{(Math.random() * 150 + 50).toFixed(1)} <span className="text-base text-slate-400 font-medium">MB/s</span></span>
+              <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Download</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <TrafficChart />
-        <SystemHealth stats={stats} />
+      {/* Middle Row: User Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-5xl font-black text-slate-800 tracking-tight mb-2">{totalUsers}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Users</span>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-5xl font-black text-blue-600 tracking-tight mb-2">{activeUsers}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Active</span>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-5xl font-black text-slate-400 tracking-tight mb-2">{deactiveUsers}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Deactive</span>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-5xl font-black text-emerald-500 tracking-tight mb-2">{onlineSessions}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Online</span>
+        </div>
       </div>
 
-      <ServerStatusList servers={servers} loading={loading} />
-
-      <UserConsumptionChart data={topUsersData} />
+      {/* Bottom Row: System details Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-5xl font-black text-slate-800 tracking-tight mb-2">{resellerCount}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Reseller</span>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-2xl font-bold text-slate-700 tracking-tight mb-1 text-center font-mono">IPv4</span>
+          <span className="text-2xl font-bold text-slate-700 tracking-tight mb-3 text-center font-mono text-opacity-50">IPv6</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">System IP</span>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-2xl font-bold text-purple-600 tracking-tight mb-1 text-center font-mono">WG1</span>
+          <span className="text-2xl font-bold text-purple-600 tracking-tight mb-3 text-center font-mono text-opacity-50">XRAY</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">VPN Active Core</span>
+        </div>
+        
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-40">
+          <span className="text-5xl font-black text-slate-800 tracking-tight mb-2">{nodesCount || 3}</span>
+          <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Nodes</span>
+        </div>
+      </div>
     </div>
   );
 }
+

@@ -13,6 +13,11 @@ const CreateUserSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(6),
   role: z.enum(['admin', 'user', 'reseller']).default('user'),
+  status: z.enum(['active', 'inactive', 'suspended']).default('active'),
+  traffic_limit_gb: z.number().min(0).default(0),
+  max_connections: z.number().min(1).default(1),
+  expires_at: z.string().optional().nullable(),
+  inboundIds: z.array(z.number()).optional(),
 });
 
 export async function GET(request: Request) {
@@ -85,19 +90,35 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const { username, password, role } = validatedData.data;
+    const { username, password, role, status, traffic_limit_gb, max_connections, expires_at, inboundIds } = validatedData.data;
+
+    // Convert empty string from date input to null
+    const finalExpiresAt = expires_at ? new Date(expires_at) : null;
 
     // In a real app, hash password here
     const [result]: any = await pool.execute(
-      'INSERT INTO vpn_users (username, password, role, created_at) VALUES (?, ?, ?, NOW())',
-      [username, password, role]
+      `INSERT INTO vpn_users 
+       (username, password_hash, role, status, traffic_limit_gb, max_connections, expires_at, created_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [username, password, role, status, traffic_limit_gb, max_connections, finalExpiresAt]
     );
+
+    const userId = result.insertId;
+
+    if (inboundIds && inboundIds.length > 0) {
+      for (const inboundId of inboundIds) {
+        await pool.execute(
+          'INSERT INTO user_inbounds (user_id, inbound_id) VALUES (?, ?)',
+          [userId, inboundId]
+        );
+      }
+    }
 
     await auditLog(null, 'USER_CREATED', `User ${username} created with role ${role}`);
 
     return NextResponse.json({
       data: {
-        id: result.insertId,
+        id: userId,
         username,
         role
       }
