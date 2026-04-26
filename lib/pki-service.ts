@@ -2,7 +2,7 @@ import { query, queryOne } from './db';
 import { generateCA, generateClientCert, generateTlsAuthKey } from './pki';
 
 export async function getOrGeneratePki() {
-    const settingsRows = await query('SELECT `key`, `value` FROM settings WHERE `key` IN ("caCert", "caPrivateKey", "tlsAuthKey")');
+    const settingsRows = await query<Array<{key: string; value: string}>>('SELECT `key`, `value` FROM settings WHERE `key` IN ("caCert", "caPrivateKey", "tlsAuthKey")');
     const settingsMap = new Map(settingsRows.map(r => [r.key, r.value]));
 
     let caCertPem = '';

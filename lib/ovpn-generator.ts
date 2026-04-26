@@ -19,12 +19,17 @@ export interface PkiConfig {
   clientKeyPem: string;
 }
 
+const EMPTY_PKI: PkiConfig = { caCertPem: '', tlsAuthKey: '', clientCertPem: '', clientKeyPem: '' };
+
 export function generateOvpnProfile(
-  username: string, 
+  username: string,
   servers: ServerConfig[] = [],
-  pki: PkiConfig,
+  pki: PkiConfig = EMPTY_PKI,
   userConfig: OvpnGeneratorConfig = {}
 ): string {
+  if (!pki.caCertPem) {
+    throw new Error('PKI not configured. Upload CA certificate in the panel Settings first.');
+  }
   // Config defaults
   const defaults = {
     cipher: userConfig.cipher || 'AES-256-GCM',

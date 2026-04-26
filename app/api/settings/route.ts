@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { z } from 'zod';
 import { handleApiError } from '@/lib/api-utils';
+import { auditLog } from '@/lib/audit-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +28,11 @@ const ALLOWED_SETTING_KEYS = new Set([
 const SettingSchema = z.record(z.string(), z.string().or(z.number()));
 
 const ValidationRules: Record<string, z.ZodTypeAny> = {
-    publicIp: z.string().ip(),
+    publicIp: z.union([z.string().ipv4(), z.string().ipv6()]),
     port: z.union([z.string(), z.number()]).transform(v => Number(v)).pipe(z.number().int().min(1).max(65535)),
     protocol: z.enum(['udp', 'tcp']),
     cipher: z.string().min(1).max(50),
-    dnsServer: z.string().ip(),
+    dnsServer: z.union([z.string().ipv4(), z.string().ipv6()]),
     panelName: z.string().min(1).max(100),
 };
 

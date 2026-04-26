@@ -82,6 +82,12 @@ export async function query<T = any>(sql: string, params: any[] = []): Promise<T
   return Array.isArray(result) ? (result[0] as T) : (result as T);
 }
 
+// Like query() but returns the first row only (or null if empty).
+export async function queryOne<T = any>(sql: string, params: any[] = []): Promise<T | null> {
+  const rows = await query<T[]>(sql, params);
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
 export async function validateConnection() {
   if (isMockInitial) return;
   
