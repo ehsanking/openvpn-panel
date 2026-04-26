@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       name, 
       protocol, 
       port, 
+      server_address,
       remark,
       // OpenVPN fields
       ovpn_protocol,
@@ -60,8 +61,8 @@ export async function POST(req: Request) {
     } = body;
     
     // Validate required fields
-    if (!name || !protocol || !port) {
-      return NextResponse.json({ error: 'Name, protocol, and port are required' }, { status: 400 });
+    if (!name || !protocol || !port || !server_address) {
+      return NextResponse.json({ error: 'Name, protocol, port and server address are required' }, { status: 400 });
     }
 
     // Validate protocol
@@ -84,9 +85,9 @@ export async function POST(req: Request) {
     }
 
     // Build SQL based on protocol type
-    const columns = ['name', 'protocol', 'port', 'remark', 'status'];
-    const values: any[] = [name, protocol, parseInt(port, 10), remark || '', 'active'];
-    const placeholders = ['?', '?', '?', '?', '?'];
+    const columns = ['name', 'protocol', 'port', 'server_address', 'remark', 'status'];
+    const values: any[] = [name, protocol, parseInt(port, 10), server_address, remark || '', 'active'];
+    const placeholders = ['?', '?', '?', '?', '?', '?'];
 
     // Add protocol-specific fields
     switch (protocol) {

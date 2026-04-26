@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Users, Activity, Settings as SettingsIcon, LayoutDashboard, Menu, X, Network, Server, UserCheck } from 'lucide-react';
+import { Shield, Users, Activity, Settings as SettingsIcon, LayoutDashboard, Menu, X, Network, Server, UserCheck, Globe } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import DashboardView from '@/components/views/dashboard-view';
 import { UsersView } from '@/components/views/users-view';
@@ -11,9 +11,10 @@ import SettingsView from '@/components/views/settings-view';
 import InboundsView from '@/components/views/inbounds-view';
 import { RepresentativesView } from '@/components/views/representatives-view';
 import { NodesView } from '@/components/views/nodes-view';
+import { TunnelNodesView } from '@/components/views/tunnel-nodes-view';
 import { Toaster } from 'sonner';
 
-type ViewType = 'dashboard' | 'users' | 'inbounds' | 'sessions' | 'settings' | 'representatives' | 'nodes';
+type ViewType = 'dashboard' | 'users' | 'inbounds' | 'sessions' | 'settings' | 'representatives' | 'nodes' | 'tunnel-nodes';
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
@@ -23,6 +24,7 @@ export default function Home() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'representatives', label: 'Representatives', icon: UserCheck },
     { id: 'nodes', label: 'Nodes', icon: Server },
+    { id: 'tunnel-nodes', label: 'Tunnel Nodes', icon: Globe },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'inbounds', label: 'Inbounds', icon: Network },
     { id: 'sessions', label: 'Sessions', icon: Activity },
@@ -37,6 +39,8 @@ export default function Home() {
         return <RepresentativesView />;
       case 'nodes':
         return <NodesView />;
+      case 'tunnel-nodes':
+        return <TunnelNodesView />;
       case 'users':
         return <UsersView />;
       case 'inbounds':

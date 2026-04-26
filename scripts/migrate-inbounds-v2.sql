@@ -6,6 +6,9 @@
 -- Note: SQLite doesn't support IF NOT EXISTS for ALTER TABLE, 
 -- so these will error if columns already exist (which is fine)
 
+-- Server address (IP or domain)
+ALTER TABLE vpn_inbounds ADD COLUMN server_address VARCHAR(255);
+
 -- OpenVPN specific columns
 ALTER TABLE vpn_inbounds ADD COLUMN status VARCHAR(50) DEFAULT 'active';
 ALTER TABLE vpn_inbounds ADD COLUMN ovpn_protocol VARCHAR(10) DEFAULT 'udp';

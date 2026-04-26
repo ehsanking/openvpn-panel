@@ -33,6 +33,7 @@ interface Inbound {
   name: string;
   protocol: string;
   port: number;
+  server_address: string;
   remark: string;
   status: string;
   created_at: string;
@@ -52,6 +53,7 @@ interface InboundFormData {
   name: string;
   protocol: string;
   port: string;
+  server_address: string;
   remark: string;
   // OpenVPN
   ovpn_protocol: string;
@@ -91,6 +93,7 @@ const initialFormData: InboundFormData = {
   name: '',
   protocol: 'openvpn',
   port: '',
+  server_address: '',
   remark: '',
   // OpenVPN defaults
   ovpn_protocol: 'udp',
@@ -231,8 +234,8 @@ export default function InboundsView() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.port) {
-      return toast.error('Name and port are required');
+    if (!formData.name || !formData.port || !formData.server_address) {
+      return toast.error('Name, server address and port are required');
     }
     
     try {
@@ -728,7 +731,7 @@ export default function InboundsView() {
               </h3>
               <form onSubmit={handleCreate} className="space-y-6">
                 {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Inbound Name</label>
                     <input
@@ -739,6 +742,18 @@ export default function InboundsView() {
                       placeholder="e.g. EU-OpenVPN-Main"
                     />
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Server Address (IP or Domain)</label>
+                    <input
+                      type="text"
+                      value={formData.server_address}
+                      onChange={(e) => updateFormField('server_address', e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      placeholder="e.g. 185.12.34.56 or vpn.example.com"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Protocol</label>
                     <select
@@ -819,6 +834,7 @@ export default function InboundsView() {
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                   <th className="px-6 py-4">Gateway Name</th>
+                  <th className="px-6 py-4">Server Address</th>
                   <th className="px-6 py-4">Protocol</th>
                   <th className="px-6 py-4">Port</th>
                   <th className="px-6 py-4">Status</th>
@@ -844,6 +860,9 @@ export default function InboundsView() {
                           </div>
                           <span className="font-bold text-slate-900 tracking-tight">{inbound.name}</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-xs text-slate-600">{inbound.server_address}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${getProtocolColor(inbound.protocol)}`}>
