@@ -14,11 +14,11 @@ export async function GET() {
       serverCount,
       totalTraffic
     ] = await Promise.all([
-      query('SELECT COUNT(*) as count FROM vpn_users'),
-      query('SELECT COUNT(*) as count FROM vpn_users WHERE status = "active"'),
-      query('SELECT COUNT(*) as count FROM sessions WHERE status = "active"'),
-      query('SELECT COUNT(*) as count FROM vpn_servers WHERE status = "online"'),
-      query('SELECT SUM(traffic_total) as total FROM vpn_users')
+      query("SELECT COUNT(*) as count FROM vpn_users").catch(() => [{ count: 0 }]),
+      query("SELECT COUNT(*) as count FROM vpn_users WHERE status = 'active'").catch(() => [{ count: 0 }]),
+      query("SELECT COUNT(*) as count FROM sessions WHERE status = 'active'").catch(() => [{ count: 0 }]),
+      query("SELECT COUNT(*) as count FROM vpn_servers WHERE status = 'online'").catch(() => [{ count: 0 }]),
+      query("SELECT COALESCE(SUM(traffic_total), 0) as total FROM vpn_users").catch(() => [{ total: 0 }])
     ]);
 
     const cpus = os.cpus();

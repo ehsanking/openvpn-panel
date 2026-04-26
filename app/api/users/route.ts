@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     const [result]: any = await pool.execute(
       `INSERT INTO vpn_users 
        (username, password_hash, role, status, traffic_limit_gb, max_connections, expires_at, created_at, cisco_password, l2tp_password, wg_pubkey, xray_uuid, port, main_protocol) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)`,
       [username, password || null, role, status, traffic_limit_gb, max_connections, finalExpiresAt, cisco_password || null, l2tp_password || null, wg_pubkey || null, xray_uuid || null, port || null, main_protocol || null]
     );
 

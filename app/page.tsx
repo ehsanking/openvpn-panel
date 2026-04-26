@@ -9,12 +9,12 @@ import { UsersView } from '@/components/views/users-view';
 import SessionsView from '@/components/views/sessions-view';
 import SettingsView from '@/components/views/settings-view';
 import InboundsView from '@/components/views/inbounds-view';
-import { RepresentativesView } from '@/components/views/representatives-view';
+import { ResellersView } from '@/components/views/resellers-view';
 import { NodesView } from '@/components/views/nodes-view';
 import { TunnelNodesView } from '@/components/views/tunnel-nodes-view';
 import { Toaster } from 'sonner';
 
-type ViewType = 'dashboard' | 'users' | 'inbounds' | 'sessions' | 'settings' | 'representatives' | 'nodes' | 'tunnel-nodes';
+type ViewType = 'dashboard' | 'users' | 'inbounds' | 'sessions' | 'settings' | 'resellers' | 'nodes' | 'tunnel-nodes';
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
@@ -22,7 +22,7 @@ export default function Home() {
 
   const navigation = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'representatives', label: 'Representatives', icon: UserCheck },
+    { id: 'resellers', label: 'Resellers', icon: UserCheck },
     { id: 'nodes', label: 'Nodes', icon: Server },
     { id: 'tunnel-nodes', label: 'Tunnel Nodes', icon: Globe },
     { id: 'users', label: 'Users', icon: Users },
@@ -35,8 +35,8 @@ export default function Home() {
     switch (activeView) {
       case 'dashboard':
         return <DashboardView />;
-      case 'representatives':
-        return <RepresentativesView />;
+      case 'resellers':
+        return <ResellersView />;
       case 'nodes':
         return <NodesView />;
       case 'tunnel-nodes':

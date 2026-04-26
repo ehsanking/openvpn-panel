@@ -1,14 +1,12 @@
 /**
  * DPI-Resistant Tunnel Command Generator
  * 
- * Generates commands for establishing secure tunnels between nodes
- * Using Gost (Go Simple Tunnel) for maximum DPI bypass capability
+ * Modern protocols for bypassing Iranian firewall:
  * 
- * Tunnel Types:
- * - WSS: WebSocket over TLS (looks like HTTPS traffic)
- * - gRPC: HTTP/2 based (looks like Google services)
- * - QUIC: UDP-based encrypted protocol
- * - H2: HTTP/2 tunnel
+ * 1. Hysteria2 - QUIC-based, newest and fastest, very hard to detect
+ * 2. Xray Reality - Looks exactly like real HTTPS to major sites (google, microsoft)
+ * 3. WSS - WebSocket over TLS, classic reliable option
+ * 4. gRPC - HTTP/2 based, mimics Google services
  */
 
 export interface TunnelNode {
@@ -19,7 +17,7 @@ export interface TunnelNode {
   flag_emoji?: string;
   remote_ip: string;
   tunnel_port: number;
-  tunnel_type: 'wss' | 'grpc' | 'quic' | 'h2';
+  tunnel_type: 'hysteria2' | 'reality' | 'wss' | 'grpc';
   tunnel_secret: string;
   local_forward_port: number;
   sni_host: string;
@@ -33,7 +31,6 @@ export interface MainServerConfig {
 
 /**
  * Generate the command to run on the MAIN server (where panel is installed)
- * This creates the listener that remote nodes will connect to
  */
 export function generateMainServerCommand(
   mainServer: MainServerConfig,
@@ -41,36 +38,151 @@ export function generateMainServerCommand(
   tunnelSecret: string,
   localForwardPort: number
 ): string {
-  const authHeader = Buffer.from(`admin:${tunnelSecret}`).toString('base64');
-  
   switch (tunnelType) {
-    case 'wss':
-      return `# Install Gost on Main Server
-curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz -o gost.gz && gunzip gost.gz && chmod +x gost && mv gost /usr/local/bin/
+    case 'hysteria2':
+      return `# =============================================
+# Hysteria2 Server Setup (Main Server)
+# Most DPI-resistant option - QUIC based
+# =============================================
 
-# Run Tunnel Listener (WSS - Looks like HTTPS)
-gost -L "relay+wss://:${mainServer.port}?auth=${authHeader}&path=/ws&cert=/etc/ssl/certs/server.crt&key=/etc/ssl/private/server.key"`;
+# Install Hysteria2
+curl -fsSL https://get.hy2.sh/ | bash
+
+# Create config
+cat > /etc/hysteria/config.yaml << 'EOF'
+listen: :${mainServer.port}
+
+tls:
+  cert: /etc/hysteria/server.crt
+  key: /etc/hysteria/server.key
+
+auth:
+  type: password
+  password: ${tunnelSecret}
+
+masquerade:
+  type: proxy
+  proxy:
+    url: https://www.google.com
+    rewriteHost: true
+EOF
+
+# Generate self-signed cert (or use real cert)
+openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \\
+  -keyout /etc/hysteria/server.key -out /etc/hysteria/server.crt \\
+  -subj "/CN=www.google.com" -days 36500
+
+# Start service
+systemctl enable hysteria-server
+systemctl start hysteria-server`;
+
+    case 'reality':
+      return `# =============================================
+# Xray Reality Server Setup (Main Server)
+# Looks like real HTTPS - Nearly undetectable
+# =============================================
+
+# Install Xray
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+
+# Generate Reality keys
+xray x25519
+
+# Create config (replace PRIVATE_KEY with generated key)
+cat > /usr/local/etc/xray/config.json << 'EOF'
+{
+  "inbounds": [{
+    "listen": "0.0.0.0",
+    "port": ${mainServer.port},
+    "protocol": "vless",
+    "settings": {
+      "clients": [{"id": "${tunnelSecret}", "flow": "xtls-rprx-vision"}],
+      "decryption": "none"
+    },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "reality",
+      "realitySettings": {
+        "show": false,
+        "dest": "www.google.com:443",
+        "xver": 0,
+        "serverNames": ["www.google.com", "google.com"],
+        "privateKey": "YOUR_PRIVATE_KEY_HERE",
+        "shortIds": ["", "0123456789abcdef"]
+      }
+    }
+  }],
+  "outbounds": [{"protocol": "freedom"}]
+}
+EOF
+
+# Start service
+systemctl enable xray
+systemctl start xray`;
+
+    case 'wss':
+      return `# =============================================
+# WebSocket TLS Tunnel (Main Server)
+# Looks like normal HTTPS traffic
+# =============================================
+
+# Install Gost
+curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz | gunzip > /usr/local/bin/gost
+chmod +x /usr/local/bin/gost
+
+# Create systemd service
+cat > /etc/systemd/system/gost-tunnel.service << 'EOF'
+[Unit]
+Description=Gost WSS Tunnel Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -L "relay+wss://:${mainServer.port}?path=/ws&cert=/etc/ssl/certs/server.crt&key=/etc/ssl/private/server.key"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Generate self-signed cert (or use real cert from Let's Encrypt)
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \\
+  -keyout /etc/ssl/private/server.key \\
+  -out /etc/ssl/certs/server.crt \\
+  -subj "/CN=www.google.com"
+
+systemctl daemon-reload
+systemctl enable gost-tunnel
+systemctl start gost-tunnel`;
 
     case 'grpc':
-      return `# Install Gost on Main Server
-curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz -o gost.gz && gunzip gost.gz && chmod +x gost && mv gost /usr/local/bin/
+      return `# =============================================
+# gRPC Tunnel (Main Server)
+# Mimics Google services traffic
+# =============================================
 
-# Run Tunnel Listener (gRPC - Looks like Google services)
-gost -L "relay+grpc://:${mainServer.port}?auth=${authHeader}"`;
+# Install Gost
+curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz | gunzip > /usr/local/bin/gost
+chmod +x /usr/local/bin/gost
 
-    case 'quic':
-      return `# Install Gost on Main Server
-curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz -o gost.gz && gunzip gost.gz && chmod +x gost && mv gost /usr/local/bin/
+# Create systemd service
+cat > /etc/systemd/system/gost-grpc.service << 'EOF'
+[Unit]
+Description=Gost gRPC Tunnel Server
+After=network.target
 
-# Run Tunnel Listener (QUIC - UDP encrypted)
-gost -L "relay+quic://:${mainServer.port}?auth=${authHeader}"`;
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -L "relay+grpc://:${mainServer.port}"
+Restart=always
 
-    case 'h2':
-      return `# Install Gost on Main Server
-curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz -o gost.gz && gunzip gost.gz && chmod +x gost && mv gost /usr/local/bin/
+[Install]
+WantedBy=multi-user.target
+EOF
 
-# Run Tunnel Listener (HTTP/2)
-gost -L "relay+h2://:${mainServer.port}?auth=${authHeader}"`;
+systemctl daemon-reload
+systemctl enable gost-grpc
+systemctl start gost-grpc`;
 
     default:
       return `# Unknown tunnel type: ${tunnelType}`;
@@ -79,65 +191,121 @@ gost -L "relay+h2://:${mainServer.port}?auth=${authHeader}"`;
 
 /**
  * Generate the command to run on the REMOTE node server
- * This connects back to the main server and creates the tunnel
  */
 export function generateRemoteNodeCommand(
   node: TunnelNode,
   mainServerIp: string,
   mainServerListenPort: number
 ): string {
-  const authHeader = Buffer.from(`admin:${node.tunnel_secret}`).toString('base64');
-  
-  const installCmd = `# ============================================
+  const header = `# =============================================
 # Tunnel Setup for: ${node.name} (${node.location})
-# ============================================
-
-# Step 1: Install Gost
-curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz -o gost.gz
-gunzip gost.gz
-chmod +x gost
-mv gost /usr/local/bin/
+# Type: ${node.tunnel_type.toUpperCase()}
+# =============================================
 
 `;
 
-  let tunnelCmd = '';
-  
   switch (node.tunnel_type) {
-    case 'wss':
-      tunnelCmd = `# Step 2: Start Tunnel (WSS - DPI Resistant)
-# This will forward local port ${node.local_forward_port} through the tunnel
-gost -L "tcp://:${node.local_forward_port}" -F "relay+wss://${mainServerIp}:${mainServerListenPort}?auth=${authHeader}&path=/ws&serverName=${node.sni_host}"`;
-      break;
+    case 'hysteria2':
+      return header + `# Install Hysteria2
+curl -fsSL https://get.hy2.sh/ | bash
 
-    case 'grpc':
-      tunnelCmd = `# Step 2: Start Tunnel (gRPC - Looks like Google traffic)
-gost -L "tcp://:${node.local_forward_port}" -F "relay+grpc://${mainServerIp}:${mainServerListenPort}?auth=${authHeader}"`;
-      break;
+# Create client config
+cat > /etc/hysteria/config.yaml << 'EOF'
+server: ${mainServerIp}:${mainServerListenPort}
 
-    case 'quic':
-      tunnelCmd = `# Step 2: Start Tunnel (QUIC - UDP based)
-gost -L "tcp://:${node.local_forward_port}" -F "relay+quic://${mainServerIp}:${mainServerListenPort}?auth=${authHeader}"`;
-      break;
+auth: ${node.tunnel_secret}
 
-    case 'h2':
-      tunnelCmd = `# Step 2: Start Tunnel (HTTP/2)
-gost -L "tcp://:${node.local_forward_port}" -F "relay+h2://${mainServerIp}:${mainServerListenPort}?auth=${authHeader}"`;
-      break;
-  }
+tls:
+  sni: ${node.sni_host}
+  insecure: true
 
-  const systemdService = `
+socks5:
+  listen: 127.0.0.1:${node.local_forward_port}
 
-# ============================================
-# Optional: Create Systemd Service for Auto-Start
-# ============================================
-cat > /etc/systemd/system/gost-tunnel.service << 'EOF'
+http:
+  listen: 127.0.0.1:${node.local_forward_port + 1}
+EOF
+
+# Create systemd service
+cat > /etc/systemd/system/hysteria-client.service << 'EOF'
 [Unit]
-Description=Gost Tunnel to Main Server
+Description=Hysteria2 Client Tunnel
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/gost -L "tcp://:${node.local_forward_port}" -F "relay+${node.tunnel_type}://${mainServerIp}:${mainServerListenPort}?auth=${authHeader}${node.tunnel_type === 'wss' ? `&path=/ws&serverName=${node.sni_host}` : ''}"
+ExecStart=/usr/local/bin/hysteria client -c /etc/hysteria/config.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable hysteria-client
+systemctl start hysteria-client
+
+# Check status
+systemctl status hysteria-client`;
+
+    case 'reality':
+      return header + `# Install Xray
+bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+
+# Create client config
+cat > /usr/local/etc/xray/config.json << 'EOF'
+{
+  "inbounds": [{
+    "listen": "127.0.0.1",
+    "port": ${node.local_forward_port},
+    "protocol": "socks",
+    "settings": {"udp": true}
+  }],
+  "outbounds": [{
+    "protocol": "vless",
+    "settings": {
+      "vnext": [{
+        "address": "${mainServerIp}",
+        "port": ${mainServerListenPort},
+        "users": [{"id": "${node.tunnel_secret}", "flow": "xtls-rprx-vision", "encryption": "none"}]
+      }]
+    },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "reality",
+      "realitySettings": {
+        "show": false,
+        "fingerprint": "chrome",
+        "serverName": "${node.sni_host}",
+        "publicKey": "YOUR_PUBLIC_KEY_HERE",
+        "shortId": ""
+      }
+    }
+  }]
+}
+EOF
+
+systemctl enable xray
+systemctl start xray
+
+# Check status
+systemctl status xray`;
+
+    case 'wss':
+      return header + `# Install Gost
+curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz | gunzip > /usr/local/bin/gost
+chmod +x /usr/local/bin/gost
+
+# Create systemd service
+cat > /etc/systemd/system/gost-tunnel.service << 'EOF'
+[Unit]
+Description=Gost WSS Tunnel Client
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -L "tcp://:${node.local_forward_port}" -F "relay+wss://${mainServerIp}:${mainServerListenPort}?path=/ws&serverName=${node.sni_host}"
 Restart=always
 RestartSec=5
 
@@ -152,7 +320,37 @@ systemctl start gost-tunnel
 # Check status
 systemctl status gost-tunnel`;
 
-  return installCmd + tunnelCmd + systemdService;
+    case 'grpc':
+      return header + `# Install Gost
+curl -L https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz | gunzip > /usr/local/bin/gost
+chmod +x /usr/local/bin/gost
+
+# Create systemd service
+cat > /etc/systemd/system/gost-grpc.service << 'EOF'
+[Unit]
+Description=Gost gRPC Tunnel Client
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -L "tcp://:${node.local_forward_port}" -F "relay+grpc://${mainServerIp}:${mainServerListenPort}"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable gost-grpc
+systemctl start gost-grpc
+
+# Check status
+systemctl status gost-grpc`;
+
+    default:
+      return `# Unknown tunnel type: ${node.tunnel_type}`;
+  }
 }
 
 /**
@@ -160,23 +358,23 @@ systemctl status gost-tunnel`;
  */
 export function getTunnelTypeDescription(type: string): string {
   switch (type) {
+    case 'hysteria2':
+      return 'Hysteria2 (QUIC) - Newest protocol, extremely fast and hard to detect. Best for Iranian firewall.';
+    case 'reality':
+      return 'Xray Reality - TLS fingerprint looks exactly like visiting google.com. Nearly impossible to detect.';
     case 'wss':
-      return 'WebSocket over TLS - Appears as normal HTTPS traffic, best for bypassing DPI';
+      return 'WebSocket over TLS - Looks like normal HTTPS traffic. Good fallback option.';
     case 'grpc':
-      return 'gRPC over HTTP/2 - Mimics Google services traffic';
-    case 'quic':
-      return 'QUIC Protocol - Fast UDP-based encrypted tunnel';
-    case 'h2':
-      return 'HTTP/2 Tunnel - Standard HTTP/2 based connection';
+      return 'gRPC over HTTP/2 - Mimics Google services traffic pattern.';
     default:
       return 'Unknown tunnel type';
   }
 }
 
 /**
- * Get recommended tunnel type based on conditions
+ * Get recommended tunnel type
  */
-export function getRecommendedTunnelType(): 'wss' | 'grpc' | 'quic' | 'h2' {
-  // WSS is generally the most DPI-resistant for Iranian firewall
-  return 'wss';
+export function getRecommendedTunnelType(): 'hysteria2' | 'reality' | 'wss' | 'grpc' {
+  // Hysteria2 is currently the most effective for Iran
+  return 'hysteria2';
 }

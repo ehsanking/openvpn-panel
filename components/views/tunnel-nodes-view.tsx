@@ -23,7 +23,7 @@ interface TunnelNode {
   flag_emoji?: string;
   remote_ip: string;
   tunnel_port: number;
-  tunnel_type: 'wss' | 'grpc' | 'quic' | 'h2';
+  tunnel_type: 'hysteria2' | 'reality' | 'wss' | 'grpc';
   tunnel_secret: string;
   local_forward_port: number;
   sni_host: string;
@@ -44,10 +44,10 @@ const COUNTRY_FLAGS: Record<string, string> = {
 };
 
 const TUNNEL_TYPES = [
-  { value: 'wss', label: 'WSS (WebSocket TLS)', recommended: true },
-  { value: 'grpc', label: 'gRPC (HTTP/2)', recommended: false },
-  { value: 'quic', label: 'QUIC (UDP)', recommended: false },
-  { value: 'h2', label: 'HTTP/2', recommended: false },
+  { value: 'hysteria2', label: 'Hysteria2 (QUIC)', recommended: true, description: 'Newest, fastest, most DPI-resistant' },
+  { value: 'reality', label: 'Xray Reality', recommended: true, description: 'Looks like real HTTPS to major sites' },
+  { value: 'wss', label: 'WSS (WebSocket TLS)', recommended: false, description: 'Good fallback option' },
+  { value: 'grpc', label: 'gRPC (HTTP/2)', recommended: false, description: 'Mimics Google services' },
 ];
 
 export function TunnelNodesView() {
