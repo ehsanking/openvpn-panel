@@ -11,10 +11,9 @@ import SettingsView from '@/components/views/settings-view';
 import InboundsView from '@/components/views/inbounds-view';
 import { RepresentativesView } from '@/components/views/representatives-view';
 import { NodesView } from '@/components/views/nodes-view';
-import { AdminToolsView } from '@/components/views/admin-tools-view';
 import { Toaster } from 'sonner';
 
-type ViewType = 'dashboard' | 'users' | 'inbounds' | 'sessions' | 'settings' | 'representatives' | 'nodes' | 'adminTools';
+type ViewType = 'dashboard' | 'users' | 'inbounds' | 'sessions' | 'settings' | 'representatives' | 'nodes';
 
 export default function Home() {
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
@@ -28,7 +27,6 @@ export default function Home() {
     { id: 'inbounds', label: 'Inbounds', icon: Network },
     { id: 'sessions', label: 'Sessions', icon: Activity },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
-    { id: 'adminTools', label: 'Admin Tools', icon: SettingsIcon },
   ] as const;
 
   const renderView = () => {
@@ -47,8 +45,6 @@ export default function Home() {
         return <SessionsView />;
       case 'settings':
         return <SettingsView />;
-      case 'adminTools':
-        return <AdminToolsView />;
       default:
         return <DashboardView />;
     }
