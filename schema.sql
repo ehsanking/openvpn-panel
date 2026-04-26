@@ -4,7 +4,45 @@ CREATE TABLE IF NOT EXISTS vpn_inbounds (
     protocol VARCHAR(50) NOT NULL,
     port INT NOT NULL,
     remark TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    status VARCHAR(50) DEFAULT 'active',
+    -- OpenVPN specific
+    ovpn_protocol VARCHAR(10) DEFAULT 'udp',
+    ovpn_cipher VARCHAR(50) DEFAULT 'AES-256-GCM',
+    ovpn_auth VARCHAR(50) DEFAULT 'SHA256',
+    ovpn_dev VARCHAR(10) DEFAULT 'tun',
+    -- WireGuard specific
+    wg_private_key VARCHAR(255),
+    wg_public_key VARCHAR(255),
+    wg_address VARCHAR(50),
+    wg_dns VARCHAR(100),
+    wg_mtu INT DEFAULT 1420,
+    wg_persistent_keepalive INT DEFAULT 25,
+    -- Cisco AnyConnect (ocserv) specific
+    cisco_auth_method VARCHAR(50) DEFAULT 'password',
+    cisco_max_clients INT DEFAULT 100,
+    cisco_dpd INT DEFAULT 90,
+    -- L2TP/IPsec specific
+    l2tp_psk VARCHAR(255),
+    l2tp_dns VARCHAR(100),
+    l2tp_local_ip VARCHAR(50),
+    l2tp_remote_ip_range VARCHAR(100),
+    -- Xray specific (VLESS/VMess/Trojan/Shadowsocks)
+    xray_protocol VARCHAR(50),
+    xray_uuid VARCHAR(255),
+    xray_flow VARCHAR(50),
+    xray_network VARCHAR(50) DEFAULT 'tcp',
+    xray_security VARCHAR(50) DEFAULT 'reality',
+    xray_sni VARCHAR(255),
+    xray_fingerprint VARCHAR(50) DEFAULT 'chrome',
+    xray_public_key VARCHAR(255),
+    xray_short_id VARCHAR(50),
+    xray_path VARCHAR(255),
+    xray_service_name VARCHAR(255),
+    xray_encryption VARCHAR(50),
+    -- Common config as JSON for extensibility
+    extra_config TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vpn_users (
