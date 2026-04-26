@@ -11,7 +11,7 @@ export function ServerHistoryModal({ isOpen, onClose }: { isOpen: boolean, onClo
 
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setLoading(true);
       fetch('/api/servers/history')
         .then(res => res.json())
