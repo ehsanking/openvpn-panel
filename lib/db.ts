@@ -4,6 +4,20 @@ import path from 'path';
 
 let db: null | Database.Database = null;
 
+// Simple lock to serialize write operations
+let writeLock: Promise<void> = Promise.resolve();
+
+async function acquireLock() {
+  let release: () => void;
+  const lock = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  const previousLock = writeLock;
+  writeLock = lock;
+  await previousLock;
+  return release!;
+}
+
 export async function validateConnection() {
   if (db) return;
   
@@ -47,10 +61,15 @@ const poolProxy = {
       const rows = stmt.all(normalized);
       return [rows, null];
     } else {
-      const stmt = db!.prepare(sql);
-      const result = stmt.run(normalized);
-      // better-sqlite3 returns { changes, lastInsertRowid }
-      return [{ insertId: Number(result.lastInsertRowid), affectedRows: result.changes }, null];
+      const release = await acquireLock();
+      try {
+        const stmt = db!.prepare(sql);
+        const result = stmt.run(normalized);
+        // better-sqlite3 returns { changes, lastInsertRowid }
+        return [{ insertId: Number(result.lastInsertRowid), affectedRows: result.changes }, null];
+      } finally {
+        release();
+      }
     }
   },
   getConnection: async () => {
@@ -73,9 +92,14 @@ const poolProxy = {
       const rows = stmt.all(normalized);
       return [rows, null];
     } else {
-      const stmt = db!.prepare(sql);
-      const result = stmt.run(normalized);
-      return [{ insertId: Number(result.lastInsertRowid), affectedRows: result.changes }, null];
+      const release = await acquireLock();
+      try {
+        const stmt = db!.prepare(sql);
+        const result = stmt.run(normalized);
+        return [{ insertId: Number(result.lastInsertRowid), affectedRows: result.changes }, null];
+      } finally {
+        release();
+      }
     }
   }
 };
