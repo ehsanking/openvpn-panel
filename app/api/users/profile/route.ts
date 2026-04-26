@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { generateOvpnProfile } from '@/lib/ovpn-generator';
+import { generateOvpnProfile, PkiConfig } from '@/lib/ovpn-generator';
+import { getOrGeneratePki, getOrGenerateClientCert } from '@/lib/pki-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,17 @@ export async function GET(req: Request) {
         // Fetch active servers for multi-node support
         const servers: any = await query('SELECT ip_address, ports FROM vpn_servers WHERE status = "online" AND is_active = TRUE');
 
-        const profile = await generateOvpnProfile(username, servers);
+        const { caCertPem, caKeyPem, tlsAuthKey } = await getOrGeneratePki();
+        const { clientCertPem, clientKeyPem } = await getOrGenerateClientCert(username, caCertPem, caKeyPem);
+
+        const pki: PkiConfig = {
+            caCertPem,
+            tlsAuthKey,
+            clientCertPem,
+            clientKeyPem
+        };
+
+        const profile = await generateOvpnProfile(username, servers, pki);
         
         return NextResponse.json({ profile });
     } catch (error: any) {

@@ -77,14 +77,14 @@ export async function POST(req: Request) {
         maxAge: 60 * 60 * 24 // 1 day
       });
 
-      await auditLog('admin_login_success', 'admin', username, { username });
+      await auditLog('admin', 'admin_login_success', `Username: ${username}`);
       return NextResponse.json({ success: true });
     }
 
-    await auditLog('admin_login_failed', 'anonymous', username, { username });
+    await auditLog('anonymous', 'admin_login_failed', `Username: ${username}`);
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   } catch (error: any) {
-    await auditLog('admin_login_error', 'system', 'unknown', { error: error.message });
+    await auditLog('system', 'admin_login_error', `Error: ${error.message}`);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

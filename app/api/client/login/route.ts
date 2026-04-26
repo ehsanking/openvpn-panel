@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
-      await auditLog('client_login_failed', 'anonymous', username, { username });
+      await auditLog('anonymous', 'client_login_failed', `Username: ${username}`);
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -62,10 +62,10 @@ export async function POST(req: Request) {
         maxAge: 3600 // 1 hr
     });
 
-    await auditLog('client_login_success', 'user', user.username, { username: user.username });
+    await auditLog(user.id, 'client_login_success', `Username: ${user.username}`);
     return res;
   } catch (error: any) {
-    await auditLog('client_login_error', 'system', 'unknown', { error: error.message });
+    await auditLog('system', 'client_login_error', `Error: ${error.message}`);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@ import pool from './db';
 
 interface AuditLogOptions {
   dbQuery?: any;
+  [key: string]: any;
 }
 
 export async function auditLog(
@@ -12,6 +13,7 @@ export async function auditLog(
   options: AuditLogOptions = {}
 ) {
   const query = options.dbQuery || pool;
+  const { dbQuery, ...contextParams } = options;
   
   let ipAddress = 'unknown';
   let userAgent = 'unknown';
@@ -25,10 +27,23 @@ export async function auditLog(
     console.warn('Could not retrieve headers for audit log:', error);
   }
 
+  const context = {
+    userId,
+    action,
+    details,
+    ipAddress,
+    userAgent,
+    ...contextParams
+  };
+
   try {
     await query.execute(
-      'INSERT INTO logs (user_id, action, details, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-      [userId, action, details, ipAddress, userAgent]
+      'INSERT INTO logs (level, message, context, created_at) VALUES (?, ?, ?, NOW())',
+      [
+        action.includes('error') || action.includes('failed') ? 'error' : 'info',
+        `${action} - ${details}`,
+        JSON.stringify(context)
+      ]
     );
   } catch (error) {
     console.error('Failed to write audit log:', error);

@@ -43,10 +43,10 @@ class MockPool {
 
 let activePool: any;
 
-const isMockInitial = process.env.MYSQL_HOST === undefined && process.env.NODE_ENV !== 'production';
+const isMockInitial = process.env.MYSQL_HOST === undefined;
 
 if (isMockInitial) {
-  console.warn('⚠️ MYSQL_HOST not set. Falling back to Mock Database for development.');
+  console.warn(`⚠️ MYSQL_HOST not set (${process.env.NODE_ENV || 'development'}). Falling back to Mock Database.`);
   activePool = new MockPool();
 } else {
   activePool = mysql.createPool({
@@ -60,41 +60,52 @@ if (isMockInitial) {
   });
 }
 
+let initPromise: Promise<void> | null = null;
+
 // Wrapper to allow "hot-swapping" the pool
 const poolProxy = {
   execute: async (sql: string, params: any[] = []) => {
+    if (initPromise) await initPromise;
     return activePool.execute(sql, params);
   },
   getConnection: async () => {
+    if (initPromise) await initPromise;
     return activePool.getConnection();
   },
   query: async (sql: string, params: any[] = []) => {
-    if (activePool.query) return activePool.query(sql, params);
-    return activePool.execute(sql, params);
+    if (initPromise) await initPromise;
+    let result;
+    if (activePool.query) result = await activePool.query(sql, params);
+    else result = await activePool.execute(sql, params);
+    return result[0];
   }
 };
 
 export async function validateConnection() {
-  if (isMockInitial) return;
+  if (isMockInitial) {
+    console.info('ℹ️ Using Mock Database (MYSQL_HOST not set).');
+    return;
+  }
   
   try {
     const connection = await activePool.getConnection();
     console.log('✅ Database connected successfully');
     connection.release();
   } catch (error: any) {
-    console.error('❌ Database connection failed:', error.message);
-    console.info('Tip: Ensure MYSQL_HOST, MYSQL_USER, and MYSQL_PASSWORD are set in your environment.');
-    
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Switching to Mock Database for this session.');
-      activePool = new MockPool();
-    }
+    console.info('🔌 No database detected (or connection refused). Using Mock Database.');
+    activePool = new MockPool();
   }
 }
 
 // Ensure connection is validated on startup
 if (process.env.NODE_ENV !== 'test') {
-  validateConnection();
+  initPromise = validateConnection();
 }
+
+export const query = poolProxy.query;
+export const queryOne = async (sql: string, params: any[] = []) => {
+    const [rows]: any = await poolProxy.query(sql, params);
+    return rows[0] || null;
+};
 
 export default poolProxy;

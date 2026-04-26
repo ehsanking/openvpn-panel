@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const ServerSchema = z.object({
   name: z.string().min(1).max(255),
-  ip_address: z.string().ip(),
+  ip_address: z.string().min(1),
   domain: z.string().optional().nullable(),
   ports: z.array(z.number().int().min(1).max(65535)).default([1194]),
   protocol: z.enum(['udp', 'tcp']).default('udp')

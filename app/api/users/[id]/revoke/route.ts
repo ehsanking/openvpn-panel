@@ -9,7 +9,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     
     // Revocation logic
     await query('UPDATE vpn_users SET status = ? WHERE id = ?', ['revoked', id]);
-    await auditLog('revoke_user', 'admin', id, { id });
+    await auditLog('admin', 'revoke_user', String(id), { id });
     
     // Stub for CRL broadcast/trigger
     console.log(`CRITICAL: CRL update triggered for user ${id}`);
