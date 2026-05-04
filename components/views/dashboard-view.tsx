@@ -47,10 +47,15 @@ const PROTOCOL_LABEL: Record<string, string> = {
   wireguard: 'WireGuard',
   cisco: 'Cisco AnyConnect',
   l2tp: 'L2TP/IPsec',
+  ikev2: 'IKEv2/IPsec',
+  pptp: 'PPTP (legacy)',
+  sstp: 'SSTP',
   vless: 'VLESS',
   vmess: 'VMess',
   trojan: 'Trojan',
   shadowsocks: 'Shadowsocks',
+  hysteria2: 'Hysteria 2',
+  tuic: 'TUIC v5',
 };
 
 const PROTOCOL_ICON: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -58,10 +63,15 @@ const PROTOCOL_ICON: Record<string, React.ComponentType<{ size?: number; classNa
   wireguard: Wifi,
   cisco: Globe,
   l2tp: Key,
+  ikev2: Shield,
+  pptp: Lock,
+  sstp: Lock,
   vless: Radio,
   vmess: Radio,
   trojan: Shield,
   shadowsocks: Radio,
+  hysteria2: Wifi,
+  tuic: Wifi,
 };
 
 const PROTOCOL_BG: Record<string, string> = {
@@ -69,10 +79,15 @@ const PROTOCOL_BG: Record<string, string> = {
   wireguard: 'bg-purple-50 text-purple-600',
   cisco: 'bg-blue-50 text-blue-600',
   l2tp: 'bg-green-50 text-green-600',
+  ikev2: 'bg-teal-50 text-teal-600',
+  pptp: 'bg-amber-50 text-amber-600',
+  sstp: 'bg-sky-50 text-sky-600',
   vless: 'bg-cyan-50 text-cyan-600',
   vmess: 'bg-pink-50 text-pink-600',
   trojan: 'bg-red-50 text-red-600',
   shadowsocks: 'bg-indigo-50 text-indigo-600',
+  hysteria2: 'bg-violet-50 text-violet-600',
+  tuic: 'bg-fuchsia-50 text-fuchsia-600',
 };
 
 interface Props {

@@ -92,8 +92,10 @@ POST /api/inbounds
 Body (minimum):
 {
   "name":           "EU-OpenVPN-Main",
-  "protocol":       "openvpn",        // openvpn | wireguard | cisco | l2tp |
-                                      // vless | vmess | trojan | shadowsocks
+  "protocol":       "openvpn",
+       // Traditional VPN: openvpn | wireguard | ikev2 | cisco | l2tp | sstp | pptp
+       // Xray family:     vless | vmess | trojan | shadowsocks
+       // QUIC-based:      hysteria2 | tuic
   "port":           1194,
   "server_address": "vpn.example.com" // IP or domain
 }
@@ -102,11 +104,25 @@ Body (minimum):
 { "success": true, "id": <number>, "message": "..." }
 ```
 
-Protocol-specific fields are optional and namespaced (`ovpn_*`, `wg_*`,
-`cisco_*`, `l2tp_*`, `xray_*`). The full list is in `lib/config-generators.ts`
-and `schema.sql`.
+Protocol-specific fields are namespaced and validated per-protocol (the
+required ones are enforced server-side):
 
-Conflicts on `(protocol, port)` return **400**.
+| Protocol     | Required fields                  | Optional fields (excerpt)                         |
+|--------------|----------------------------------|---------------------------------------------------|
+| openvpn      | —                                | `ovpn_protocol`, `ovpn_cipher`, `ovpn_auth`, `ovpn_dev` |
+| wireguard    | `wg_public_key`                  | `wg_address`, `wg_dns`, `wg_mtu`, `wg_persistent_keepalive` |
+| ikev2        | `ike_psk` (when auth_method=psk) | `ike_auth_method` (eap\|psk\|cert), `ike_dh_group`, `ike_dns`, `ike_proposals` |
+| cisco        | —                                | `cisco_auth_method`, `cisco_max_clients`, `cisco_dpd` |
+| l2tp         | `l2tp_psk` (≥ 8 chars)           | `l2tp_dns`, `l2tp_local_ip`, `l2tp_remote_ip_range` |
+| sstp         | —                                | `sstp_dns`, `sstp_local_ip`, `sstp_cert_path`, `sstp_key_path` |
+| pptp         | —                                | `pptp_dns`, `pptp_local_ip`, `pptp_remote_ip_range` (deprecated) |
+| vless / vmess / trojan | `xray_uuid` (UUID)     | `xray_network`, `xray_security`, `xray_sni`, `xray_flow`, … |
+| shadowsocks  | —                                | `xray_encryption`, `xray_network`                 |
+| hysteria2    | `hy2_password`                   | `hy2_obfs`, `hy2_obfs_password`, `hy2_sni`, `hy2_alpn`, `hy2_up_mbps`, `hy2_down_mbps` |
+| tuic         | `tuic_uuid` (UUID), `tuic_password` | `tuic_congestion_control`, `tuic_alpn`, `tuic_udp_relay_mode`, `tuic_sni` |
+
+Port conflicts return **409 PORT_IN_USE** — every TCP/UDP port can host
+exactly one inbound, regardless of protocol.
 
 ### Update
 

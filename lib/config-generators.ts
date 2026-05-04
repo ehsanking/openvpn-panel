@@ -1,6 +1,11 @@
 /**
  * Multi-Protocol VPN Configuration Generators
- * Supports: OpenVPN, WireGuard, Cisco AnyConnect, L2TP/IPsec, Xray (VLESS/VMess/Trojan/Shadowsocks)
+ *
+ * Supports the 13 protocols Power VPN ships:
+ *   Traditional VPN: OpenVPN, WireGuard, Cisco AnyConnect, L2TP/IPsec,
+ *                    IKEv2/IPsec, PPTP, SSTP
+ *   Xray family:     VLESS, VMess, Trojan, Shadowsocks
+ *   QUIC-based:      Hysteria2, TUIC v5
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -44,6 +49,17 @@ export interface InboundConfig {
   // L2TP
   l2tp_psk?: string;
   l2tp_dns?: string;
+  // IKEv2/IPsec
+  ike_auth_method?: string;
+  ike_psk?: string;
+  ike_dns?: string;
+  ike_dh_group?: string;
+  ike_proposals?: string;
+  ike_remote_id?: string;
+  // PPTP
+  pptp_dns?: string;
+  // SSTP
+  sstp_dns?: string;
   // Xray
   xray_uuid?: string;
   xray_flow?: string;
@@ -56,6 +72,24 @@ export interface InboundConfig {
   xray_path?: string;
   xray_service_name?: string;
   xray_encryption?: string;
+  // Hysteria2
+  hy2_password?: string;
+  hy2_obfs?: string;
+  hy2_obfs_password?: string;
+  hy2_sni?: string;
+  hy2_alpn?: string;
+  hy2_up_mbps?: number;
+  hy2_down_mbps?: number;
+  hy2_insecure?: number | boolean;
+  // TUIC v5
+  tuic_uuid?: string;
+  tuic_password?: string;
+  tuic_congestion_control?: string;
+  tuic_alpn?: string;
+  tuic_udp_relay_mode?: string;
+  tuic_sni?: string;
+  tuic_disable_sni?: number | boolean;
+  tuic_zero_rtt?: number | boolean;
 }
 
 export interface PkiConfig {
@@ -438,6 +472,245 @@ export function generateShadowsocksConfig(
 }
 
 // ============================================
+// IKEv2 / IPsec Config Generator
+// ============================================
+// Most clients (iOS / macOS / Windows / Android) configure IKEv2 manually
+// or via a downloadable .mobileconfig. We return both the connection
+// summary and a minimal Apple-style profile snippet that the operator can
+// adapt or sign.
+export function generateIKEv2Config(
+  server: ServerInfo,
+  inbound: InboundConfig,
+  user: UserCredentials
+): {
+  serverAddress: string;
+  remoteId: string;
+  authMethod: string;
+  username: string;
+  psk?: string;
+  instructions: { ios: string; android: string; windows: string; macos: string };
+} {
+  const serverAddr = server.domain || server.ip_address;
+  const authMethod = inbound.ike_auth_method || 'eap';
+  const remoteId = inbound.ike_remote_id || serverAddr;
+  const psk = authMethod === 'psk' ? (inbound.ike_psk || '') : undefined;
+
+  return {
+    serverAddress: serverAddr,
+    remoteId,
+    authMethod,
+    username: user.username,
+    psk,
+    instructions: {
+      ios: `Settings → VPN → Add VPN Configuration
+Type: IKEv2
+Description: ${inbound.name}
+Server: ${serverAddr}
+Remote ID: ${remoteId}
+Local ID: ${user.username}
+User Authentication: ${authMethod === 'psk' ? 'None (PSK)' : 'Username'}
+Username: ${user.username}
+Password: <your password>${psk ? `\nShared Secret: ${psk}` : ''}`,
+      android: `Settings → Network → VPN → Add VPN
+Type: IKEv2 / IPsec ${authMethod === 'psk' ? 'PSK' : 'MSCHAPv2'}
+Server: ${serverAddr}
+IPsec identifier: ${remoteId}
+${psk ? `Pre-shared key: ${psk}` : ''}
+Username: ${user.username}
+Password: <your password>`,
+      windows: `Settings → Network & Internet → VPN → Add a VPN
+VPN provider: Windows (built-in)
+Connection name: ${inbound.name}
+Server name: ${serverAddr}
+VPN type: IKEv2
+Type of sign-in info: ${authMethod === 'psk' ? 'Pre-shared key' : 'User name and password'}
+Username: ${user.username}${psk ? `\nPre-shared key: ${psk}` : ''}`,
+      macos: `System Settings → Network → + → Interface: VPN → VPN Type: IKEv2
+Server Address: ${serverAddr}
+Remote ID: ${remoteId}
+Local ID: ${user.username}
+Authentication Settings → ${authMethod === 'psk' ? `Shared Secret: ${psk}` : 'Username + password'}`,
+    },
+  };
+}
+
+// ============================================
+// PPTP Config Generator (legacy, deprecated)
+// ============================================
+export function generatePPTPConfig(
+  server: ServerInfo,
+  inbound: InboundConfig,
+  user: UserCredentials
+): {
+  serverAddress: string;
+  username: string;
+  authMethod: string;
+  warning: string;
+  instructions: { windows: string; android: string };
+} {
+  const serverAddr = server.domain || server.ip_address;
+  return {
+    serverAddress: serverAddr,
+    username: user.username,
+    authMethod: 'MS-CHAPv2 + MPPE-128',
+    warning:
+      'PPTP is considered insecure (MS-CHAPv2 / MPPE has known weaknesses). ' +
+      'Prefer IKEv2 or WireGuard whenever possible.',
+    instructions: {
+      windows: `Settings → Network & Internet → VPN → Add a VPN
+Connection name: ${inbound.name}
+Server name: ${serverAddr}
+VPN type: PPTP
+Type of sign-in info: User name and password
+Username: ${user.username}
+Password: <your password>`,
+      android: `Settings → Network → VPN → Add VPN
+Name: ${inbound.name}
+Type: PPTP
+Server address: ${serverAddr}
+Username: ${user.username}
+Password: <your password>`,
+    },
+  };
+}
+
+// ============================================
+// SSTP Config Generator (Windows-native, TLS:443)
+// ============================================
+export function generateSSTPConfig(
+  server: ServerInfo,
+  inbound: InboundConfig,
+  user: UserCredentials
+): {
+  serverAddress: string;
+  port: number;
+  username: string;
+  authMethod: string;
+  instructions: { windows: string };
+} {
+  const serverAddr = server.domain || server.ip_address;
+  return {
+    serverAddress: serverAddr,
+    port: inbound.port,
+    username: user.username,
+    authMethod: 'EAP-MSCHAPv2',
+    instructions: {
+      windows: `Settings → Network & Internet → VPN → Add a VPN
+Connection name: ${inbound.name}
+Server name: ${serverAddr}${inbound.port !== 443 ? `:${inbound.port}` : ''}
+VPN type: Secure Socket Tunneling Protocol (SSTP)
+Type of sign-in info: User name and password
+Username: ${user.username}
+Password: <your password>
+
+Note: the panel must serve a publicly trusted TLS certificate on
+${serverAddr}:${inbound.port} for the Windows client to connect.`,
+    },
+  };
+}
+
+// ============================================
+// Hysteria2 Config Generator
+// ============================================
+// URL format (sing-box / NekoBox / FlClash):
+//   hysteria2://<password>@<host>:<port>?obfs=salamander&obfs-password=...&sni=...&insecure=0&alpn=h3#<name>
+export function generateHysteria2Config(
+  server: ServerInfo,
+  inbound: InboundConfig
+): { url: string; qrData: string; config: object } {
+  const password = inbound.hy2_password || '';
+  const serverAddr = server.domain || server.ip_address;
+  const sni = inbound.hy2_sni || serverAddr;
+  const obfs = inbound.hy2_obfs || 'none';
+  const obfsPwd = inbound.hy2_obfs_password || '';
+  const alpn = inbound.hy2_alpn || 'h3';
+  const insecure = inbound.hy2_insecure ? '1' : '0';
+
+  const params: string[] = [];
+  if (obfs !== 'none') {
+    params.push(`obfs=${encodeURIComponent(obfs)}`);
+    if (obfsPwd) params.push(`obfs-password=${encodeURIComponent(obfsPwd)}`);
+  }
+  if (sni) params.push(`sni=${encodeURIComponent(sni)}`);
+  if (alpn) params.push(`alpn=${encodeURIComponent(alpn)}`);
+  params.push(`insecure=${insecure}`);
+
+  const url =
+    `hysteria2://${encodeURIComponent(password)}@${serverAddr}:${inbound.port}` +
+    `?${params.join('&')}#${encodeURIComponent(inbound.name)}`;
+
+  const config = {
+    type: 'hysteria2',
+    server: serverAddr,
+    server_port: inbound.port,
+    password,
+    obfs: obfs === 'none' ? undefined : { type: obfs, password: obfsPwd || undefined },
+    tls: {
+      enabled: true,
+      server_name: sni,
+      alpn: [alpn],
+      insecure: !!inbound.hy2_insecure,
+    },
+    up_mbps: inbound.hy2_up_mbps || undefined,
+    down_mbps: inbound.hy2_down_mbps || undefined,
+  };
+
+  return { url, qrData: url, config };
+}
+
+// ============================================
+// TUIC v5 Config Generator
+// ============================================
+// URL format used by sing-box / NekoBox:
+//   tuic://<uuid>:<password>@<host>:<port>?congestion_control=bbr&alpn=h3&sni=...&udp_relay_mode=native#<name>
+export function generateTUICConfig(
+  server: ServerInfo,
+  inbound: InboundConfig
+): { url: string; qrData: string; config: object } {
+  const uuid = inbound.tuic_uuid || uuidv4();
+  const password = inbound.tuic_password || '';
+  const serverAddr = server.domain || server.ip_address;
+  const sni = inbound.tuic_sni || serverAddr;
+  const cc = inbound.tuic_congestion_control || 'bbr';
+  const alpn = inbound.tuic_alpn || 'h3';
+  const relayMode = inbound.tuic_udp_relay_mode || 'native';
+  const disableSni = inbound.tuic_disable_sni ? '1' : '0';
+  const zeroRtt = inbound.tuic_zero_rtt ? '1' : '0';
+
+  const params = [
+    `congestion_control=${encodeURIComponent(cc)}`,
+    `alpn=${encodeURIComponent(alpn)}`,
+    `udp_relay_mode=${encodeURIComponent(relayMode)}`,
+    `disable_sni=${disableSni}`,
+    `reduce_rtt=${zeroRtt}`,
+  ];
+  if (sni) params.push(`sni=${encodeURIComponent(sni)}`);
+
+  const url =
+    `tuic://${uuid}:${encodeURIComponent(password)}@${serverAddr}:${inbound.port}` +
+    `?${params.join('&')}#${encodeURIComponent(inbound.name)}`;
+
+  const config = {
+    type: 'tuic',
+    server: serverAddr,
+    server_port: inbound.port,
+    uuid,
+    password,
+    congestion_control: cc,
+    udp_relay_mode: relayMode,
+    zero_rtt_handshake: !!inbound.tuic_zero_rtt,
+    tls: {
+      enabled: true,
+      server_name: sni,
+      alpn: [alpn],
+      disable_sni: !!inbound.tuic_disable_sni,
+    },
+  };
+
+  return { url, qrData: url, config };
+}
+
+// ============================================
 // Universal Config Generator
 // ============================================
 export function generateClientConfig(
@@ -501,6 +774,36 @@ export function generateClientConfig(
       return {
         type: 'url',
         ...generateShadowsocksConfig(server, inbound, user)
+      };
+
+    case 'ikev2':
+      return {
+        type: 'instructions',
+        ...generateIKEv2Config(server, inbound, user),
+      };
+
+    case 'pptp':
+      return {
+        type: 'instructions',
+        ...generatePPTPConfig(server, inbound, user),
+      };
+
+    case 'sstp':
+      return {
+        type: 'instructions',
+        ...generateSSTPConfig(server, inbound, user),
+      };
+
+    case 'hysteria2':
+      return {
+        type: 'url',
+        ...generateHysteria2Config(server, inbound),
+      };
+
+    case 'tuic':
+      return {
+        type: 'url',
+        ...generateTUICConfig(server, inbound),
       };
 
     default:

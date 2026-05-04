@@ -16,7 +16,10 @@ Power VPN is an **API-first** control plane for managing inbounds (per-protocol 
 
 ## ✨ Features
 
-- **8 protocols** out of the box: OpenVPN (UDP/TCP), WireGuard, Cisco AnyConnect (ocserv), L2TP/IPsec, and the Xray family — VLESS, VMess, Trojan, Shadowsocks.
+- **13 protocols** out of the box, covering the full modern VPN landscape:
+  - *Traditional VPN* — OpenVPN (UDP/TCP), WireGuard, IKEv2/IPsec, Cisco AnyConnect (ocserv), L2TP/IPsec, SSTP, PPTP (legacy, with deprecation warning)
+  - *Xray / V2Ray family* — VLESS, VMess, Trojan, Shadowsocks
+  - *Modern QUIC-based* — Hysteria 2, TUIC v5
 - **Strict port hygiene** — every TCP/UDP port belongs to exactly one inbound (enforced by API check + DB unique index). No accidental cross-protocol clashes.
 - **Per-user inbound assignments**: a user must be attached to one or more inbounds; the subscription URL emits a config for each one.
 - **Per-protocol validation**: each protocol's required fields (WireGuard server pubkey, L2TP PSK, Xray UUID, Shadowsocks cipher, etc.) are enforced by Zod before anything reaches the DB.

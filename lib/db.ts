@@ -63,6 +63,42 @@ const COLUMN_MIGRATIONS: Array<{ table: string; column: string; definition: stri
   { table: 'vpn_inbounds', column: 'xray_service_name', definition: 'VARCHAR(255)' },
   { table: 'vpn_inbounds', column: 'xray_encryption', definition: 'VARCHAR(50)' },
   { table: 'vpn_inbounds', column: 'extra_config', definition: 'TEXT' },
+  // IKEv2/IPsec
+  { table: 'vpn_inbounds', column: 'ike_auth_method', definition: "VARCHAR(20) DEFAULT 'eap'" },
+  { table: 'vpn_inbounds', column: 'ike_psk', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'ike_dns', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'ike_dh_group', definition: "VARCHAR(10) DEFAULT '14'" },
+  { table: 'vpn_inbounds', column: 'ike_proposals', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'ike_remote_id', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'ike_local_ip_pool', definition: 'VARCHAR(100)' },
+  // PPTP
+  { table: 'vpn_inbounds', column: 'pptp_dns', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'pptp_local_ip', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'pptp_remote_ip_range', definition: 'VARCHAR(100)' },
+  // SSTP
+  { table: 'vpn_inbounds', column: 'sstp_dns', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'sstp_local_ip', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'sstp_remote_ip_range', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'sstp_cert_path', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'sstp_key_path', definition: 'VARCHAR(255)' },
+  // Hysteria2
+  { table: 'vpn_inbounds', column: 'hy2_password', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'hy2_obfs', definition: "VARCHAR(20) DEFAULT 'none'" },
+  { table: 'vpn_inbounds', column: 'hy2_obfs_password', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'hy2_sni', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'hy2_alpn', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'hy2_up_mbps', definition: 'INT DEFAULT 0' },
+  { table: 'vpn_inbounds', column: 'hy2_down_mbps', definition: 'INT DEFAULT 0' },
+  { table: 'vpn_inbounds', column: 'hy2_insecure', definition: 'BOOLEAN DEFAULT 0' },
+  // TUIC v5
+  { table: 'vpn_inbounds', column: 'tuic_uuid', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'tuic_password', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'tuic_congestion_control', definition: "VARCHAR(20) DEFAULT 'bbr'" },
+  { table: 'vpn_inbounds', column: 'tuic_alpn', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'tuic_udp_relay_mode', definition: "VARCHAR(20) DEFAULT 'native'" },
+  { table: 'vpn_inbounds', column: 'tuic_sni', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'tuic_disable_sni', definition: 'BOOLEAN DEFAULT 0' },
+  { table: 'vpn_inbounds', column: 'tuic_zero_rtt', definition: 'BOOLEAN DEFAULT 0' },
 ];
 
 function applyColumnMigrations(database: Database.Database) {

@@ -16,8 +16,11 @@ const PROTOCOL_CATEGORIES = {
     protocols: [
       { value: 'openvpn', label: 'OpenVPN', description: 'UDP/TCP tunneling' },
       { value: 'wireguard', label: 'WireGuard', description: 'Modern, fast VPN' },
+      { value: 'ikev2', label: 'IKEv2/IPsec', description: 'Native iOS / macOS / Windows' },
       { value: 'cisco', label: 'Cisco AnyConnect', description: 'Ocserv compatible' },
       { value: 'l2tp', label: 'L2TP/IPsec', description: 'Legacy IPsec tunnel' },
+      { value: 'sstp', label: 'SSTP', description: 'Microsoft secure tunnel over TLS' },
+      { value: 'pptp', label: 'PPTP (legacy)', description: 'Deprecated — use only for compatibility' },
     ]
   },
   xray: {
@@ -27,6 +30,13 @@ const PROTOCOL_CATEGORIES = {
       { value: 'vmess', label: 'VMess', description: 'WebSocket/gRPC' },
       { value: 'trojan', label: 'Trojan', description: 'TLS masquerade' },
       { value: 'shadowsocks', label: 'Shadowsocks', description: 'AEAD encryption' },
+    ]
+  },
+  quic: {
+    label: 'Modern QUIC',
+    protocols: [
+      { value: 'hysteria2', label: 'Hysteria 2', description: 'High-loss / high-RTT QUIC' },
+      { value: 'tuic', label: 'TUIC v5', description: 'QUIC for sing-box / Clash.Meta' },
     ]
   }
 };
@@ -78,6 +88,24 @@ interface InboundFormData {
   l2tp_dns: string;
   l2tp_local_ip: string;
   l2tp_remote_ip_range: string;
+  // IKEv2/IPsec
+  ike_auth_method: string;
+  ike_psk: string;
+  ike_dns: string;
+  ike_dh_group: string;
+  ike_proposals: string;
+  ike_remote_id: string;
+  ike_local_ip_pool: string;
+  // PPTP
+  pptp_dns: string;
+  pptp_local_ip: string;
+  pptp_remote_ip_range: string;
+  // SSTP
+  sstp_dns: string;
+  sstp_local_ip: string;
+  sstp_remote_ip_range: string;
+  sstp_cert_path: string;
+  sstp_key_path: string;
   // Xray
   xray_uuid: string;
   xray_flow: string;
@@ -90,6 +118,24 @@ interface InboundFormData {
   xray_path: string;
   xray_service_name: string;
   xray_encryption: string;
+  // Hysteria2
+  hy2_password: string;
+  hy2_obfs: string;
+  hy2_obfs_password: string;
+  hy2_sni: string;
+  hy2_alpn: string;
+  hy2_up_mbps: string;
+  hy2_down_mbps: string;
+  hy2_insecure: boolean;
+  // TUIC v5
+  tuic_uuid: string;
+  tuic_password: string;
+  tuic_congestion_control: string;
+  tuic_alpn: string;
+  tuic_udp_relay_mode: string;
+  tuic_sni: string;
+  tuic_disable_sni: boolean;
+  tuic_zero_rtt: boolean;
 }
 
 const initialFormData: InboundFormData = {
@@ -130,6 +176,42 @@ const initialFormData: InboundFormData = {
   xray_path: '/ws',
   xray_service_name: 'grpc',
   xray_encryption: 'chacha20-ietf-poly1305',
+  // IKEv2 defaults
+  ike_auth_method: 'eap',
+  ike_psk: '',
+  ike_dns: '1.1.1.1',
+  ike_dh_group: '14',
+  ike_proposals: 'aes256-sha256-modp2048',
+  ike_remote_id: '',
+  ike_local_ip_pool: '10.20.30.0/24',
+  // PPTP defaults
+  pptp_dns: '8.8.8.8',
+  pptp_local_ip: '192.168.99.1',
+  pptp_remote_ip_range: '192.168.99.10-192.168.99.99',
+  // SSTP defaults
+  sstp_dns: '8.8.8.8',
+  sstp_local_ip: '10.50.60.1',
+  sstp_remote_ip_range: '10.50.60.10-10.50.60.99',
+  sstp_cert_path: '/etc/ssl/certs/sstp.crt',
+  sstp_key_path: '/etc/ssl/private/sstp.key',
+  // Hysteria2 defaults
+  hy2_password: '',
+  hy2_obfs: 'none',
+  hy2_obfs_password: '',
+  hy2_sni: 'www.bing.com',
+  hy2_alpn: 'h3',
+  hy2_up_mbps: '0',
+  hy2_down_mbps: '0',
+  hy2_insecure: false,
+  // TUIC v5 defaults
+  tuic_uuid: '',
+  tuic_password: '',
+  tuic_congestion_control: 'bbr',
+  tuic_alpn: 'h3',
+  tuic_udp_relay_mode: 'native',
+  tuic_sni: 'www.bing.com',
+  tuic_disable_sni: false,
+  tuic_zero_rtt: false,
 };
 
 const getProtocolIcon = (protocol: string) => {
@@ -138,11 +220,16 @@ const getProtocolIcon = (protocol: string) => {
     case 'wireguard': return <Wifi size={16} />;
     case 'cisco': return <Globe size={16} />;
     case 'l2tp': return <Key size={16} />;
+    case 'ikev2': return <Shield size={16} />;
+    case 'pptp':
+    case 'sstp': return <Lock size={16} />;
     case 'vless':
     case 'vmess':
     case 'trojan':
     case 'shadowsocks':
       return <Radio size={16} />;
+    case 'hysteria2':
+    case 'tuic': return <Wifi size={16} />;
     default: return <Shield size={16} />;
   }
 };
@@ -153,10 +240,15 @@ const getProtocolColor = (protocol: string) => {
     case 'wireguard': return 'bg-purple-50 text-purple-600';
     case 'cisco': return 'bg-blue-50 text-blue-600';
     case 'l2tp': return 'bg-green-50 text-green-600';
+    case 'ikev2': return 'bg-teal-50 text-teal-600';
+    case 'pptp': return 'bg-amber-50 text-amber-600';
+    case 'sstp': return 'bg-sky-50 text-sky-600';
     case 'vless': return 'bg-cyan-50 text-cyan-600';
     case 'vmess': return 'bg-pink-50 text-pink-600';
     case 'trojan': return 'bg-red-50 text-red-600';
     case 'shadowsocks': return 'bg-indigo-50 text-indigo-600';
+    case 'hysteria2': return 'bg-violet-50 text-violet-600';
+    case 'tuic': return 'bg-fuchsia-50 text-fuchsia-600';
     default: return 'bg-slate-50 text-slate-600';
   }
 };
@@ -167,10 +259,15 @@ const getDefaultPort = (protocol: string) => {
     case 'wireguard': return '51820';
     case 'cisco': return '443';
     case 'l2tp': return '1701';
+    case 'ikev2': return '4500';
+    case 'pptp': return '1723';
+    case 'sstp': return '443';
     case 'vless':
     case 'vmess':
     case 'trojan': return '443';
     case 'shadowsocks': return '8388';
+    case 'hysteria2': return '36712';
+    case 'tuic': return '36713';
     default: return '443';
   }
 };
@@ -209,6 +306,9 @@ export default function InboundsView() {
         // existing one isn't a UUID we replace it.
         if (['vless', 'vmess', 'trojan'].includes(value) && !UUID_RE.test(newData.xray_uuid)) {
           newData.xray_uuid = uuidv4();
+        }
+        if (value === 'tuic' && !UUID_RE.test(newData.tuic_uuid)) {
+          newData.tuic_uuid = uuidv4();
         }
       }
       return newData;
@@ -249,10 +349,25 @@ export default function InboundsView() {
       case 'l2tp':
         if (formData.l2tp_psk.trim().length < 8) return 'L2TP pre-shared key must be at least 8 characters';
         break;
+      case 'ikev2':
+        if (formData.ike_auth_method === 'psk' && formData.ike_psk.trim().length < 8) {
+          return 'IKEv2 pre-shared key must be at least 8 characters when auth method is PSK';
+        }
+        break;
       case 'vless':
       case 'vmess':
       case 'trojan':
         if (!UUID_RE.test(formData.xray_uuid.trim())) return 'A valid UUID is required for Xray protocols';
+        break;
+      case 'hysteria2':
+        if (!formData.hy2_password.trim()) return 'Hysteria2 password is required';
+        if (formData.hy2_obfs === 'salamander' && !formData.hy2_obfs_password.trim()) {
+          return 'Hysteria2 obfuscation password is required when salamander is enabled';
+        }
+        break;
+      case 'tuic':
+        if (!UUID_RE.test(formData.tuic_uuid.trim())) return 'TUIC requires a valid UUID';
+        if (!formData.tuic_password.trim()) return 'TUIC password is required';
         break;
     }
     return null;
@@ -322,6 +437,52 @@ export default function InboundsView() {
       case 'shadowsocks':
         include('xray_encryption', formData.xray_encryption);
         include('xray_network', formData.xray_network);
+        break;
+
+      case 'ikev2':
+        include('ike_auth_method', formData.ike_auth_method);
+        if (formData.ike_auth_method === 'psk') include('ike_psk', formData.ike_psk.trim());
+        include('ike_dns', formData.ike_dns);
+        include('ike_dh_group', formData.ike_dh_group);
+        include('ike_proposals', formData.ike_proposals);
+        include('ike_remote_id', formData.ike_remote_id);
+        include('ike_local_ip_pool', formData.ike_local_ip_pool);
+        break;
+
+      case 'pptp':
+        include('pptp_dns', formData.pptp_dns);
+        include('pptp_local_ip', formData.pptp_local_ip);
+        include('pptp_remote_ip_range', formData.pptp_remote_ip_range);
+        break;
+
+      case 'sstp':
+        include('sstp_dns', formData.sstp_dns);
+        include('sstp_local_ip', formData.sstp_local_ip);
+        include('sstp_remote_ip_range', formData.sstp_remote_ip_range);
+        include('sstp_cert_path', formData.sstp_cert_path);
+        include('sstp_key_path', formData.sstp_key_path);
+        break;
+
+      case 'hysteria2':
+        include('hy2_password', formData.hy2_password.trim());
+        include('hy2_obfs', formData.hy2_obfs);
+        if (formData.hy2_obfs === 'salamander') include('hy2_obfs_password', formData.hy2_obfs_password.trim());
+        include('hy2_sni', formData.hy2_sni);
+        include('hy2_alpn', formData.hy2_alpn);
+        include('hy2_up_mbps', parseInt(formData.hy2_up_mbps, 10) || 0);
+        include('hy2_down_mbps', parseInt(formData.hy2_down_mbps, 10) || 0);
+        include('hy2_insecure', formData.hy2_insecure);
+        break;
+
+      case 'tuic':
+        include('tuic_uuid', formData.tuic_uuid.trim());
+        include('tuic_password', formData.tuic_password.trim());
+        include('tuic_congestion_control', formData.tuic_congestion_control);
+        include('tuic_alpn', formData.tuic_alpn);
+        include('tuic_udp_relay_mode', formData.tuic_udp_relay_mode);
+        include('tuic_sni', formData.tuic_sni);
+        include('tuic_disable_sni', formData.tuic_disable_sni);
+        include('tuic_zero_rtt', formData.tuic_zero_rtt);
         break;
     }
 
@@ -778,6 +939,406 @@ export default function InboundsView() {
                 <option value="udp">UDP</option>
               </select>
             </div>
+          </div>
+        );
+
+      case 'ikev2':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-teal-50/50 rounded-xl border border-teal-100">
+            <h4 className="col-span-full text-xs font-bold text-teal-700 uppercase tracking-widest flex items-center gap-2">
+              <Shield size={14} />
+              IKEv2 / IPsec Configuration (strongSwan)
+            </h4>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Auth Method<Required /></label>
+              <select
+                value={formData.ike_auth_method}
+                onChange={(e) => updateFormField('ike_auth_method', e.target.value)}
+                className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              >
+                <option value="eap">EAP (username + password)</option>
+                <option value="psk">Pre-shared key</option>
+                <option value="cert">Certificate</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">DH Group</label>
+              <select
+                value={formData.ike_dh_group}
+                onChange={(e) => updateFormField('ike_dh_group', e.target.value)}
+                className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              >
+                <option value="14">14 — modp2048 (default)</option>
+                <option value="15">15 — modp3072</option>
+                <option value="16">16 — modp4096</option>
+                <option value="19">19 — ecp256</option>
+                <option value="20">20 — ecp384</option>
+                <option value="21">21 — ecp521</option>
+              </select>
+            </div>
+            {formData.ike_auth_method === 'psk' && (
+              <div className="col-span-full">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pre-shared Key<Required /> <span className="text-slate-300 font-normal lowercase">min 8 chars</span></label>
+                <input
+                  type="text"
+                  value={formData.ike_psk}
+                  onChange={(e) => updateFormField('ike_psk', e.target.value)}
+                  className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                  placeholder="Strong random secret"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">DNS Server</label>
+              <input
+                type="text"
+                value={formData.ike_dns}
+                onChange={(e) => updateFormField('ike_dns', e.target.value)}
+                className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                placeholder="1.1.1.1"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Local IP Pool</label>
+              <input
+                type="text"
+                value={formData.ike_local_ip_pool}
+                onChange={(e) => updateFormField('ike_local_ip_pool', e.target.value)}
+                className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                placeholder="10.20.30.0/24"
+              />
+            </div>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cipher Proposals</label>
+              <input
+                type="text"
+                value={formData.ike_proposals}
+                onChange={(e) => updateFormField('ike_proposals', e.target.value)}
+                className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                placeholder="aes256-sha256-modp2048"
+              />
+            </div>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remote ID (optional)</label>
+              <input
+                type="text"
+                value={formData.ike_remote_id}
+                onChange={(e) => updateFormField('ike_remote_id', e.target.value)}
+                className="w-full bg-white border border-teal-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                placeholder="vpn.example.com"
+              />
+            </div>
+          </div>
+        );
+
+      case 'pptp':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-amber-50/50 rounded-xl border border-amber-200">
+            <div className="col-span-full p-3 rounded-lg bg-amber-100/60 border border-amber-200 text-[11px] font-semibold text-amber-900 leading-relaxed">
+              ⚠️ PPTP is deprecated — MS-CHAPv2 / MPPE has known weaknesses.
+              Prefer IKEv2 or WireGuard whenever possible. Provided here only
+              for compatibility with very old clients.
+            </div>
+            <h4 className="col-span-full text-xs font-bold text-amber-700 uppercase tracking-widest flex items-center gap-2">
+              <Lock size={14} />
+              PPTP Configuration
+            </h4>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">DNS Server</label>
+              <input
+                type="text"
+                value={formData.pptp_dns}
+                onChange={(e) => updateFormField('pptp_dns', e.target.value)}
+                className="w-full bg-white border border-amber-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                placeholder="8.8.8.8"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Local IP</label>
+              <input
+                type="text"
+                value={formData.pptp_local_ip}
+                onChange={(e) => updateFormField('pptp_local_ip', e.target.value)}
+                className="w-full bg-white border border-amber-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                placeholder="192.168.99.1"
+              />
+            </div>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remote IP Range</label>
+              <input
+                type="text"
+                value={formData.pptp_remote_ip_range}
+                onChange={(e) => updateFormField('pptp_remote_ip_range', e.target.value)}
+                className="w-full bg-white border border-amber-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                placeholder="192.168.99.10-192.168.99.99"
+              />
+            </div>
+          </div>
+        );
+
+      case 'sstp':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-sky-50/50 rounded-xl border border-sky-100">
+            <h4 className="col-span-full text-xs font-bold text-sky-700 uppercase tracking-widest flex items-center gap-2">
+              <Lock size={14} />
+              SSTP Configuration (TLS over TCP)
+            </h4>
+            <div className="col-span-full p-3 rounded-lg bg-sky-100/60 border border-sky-200 text-[11px] text-sky-900 leading-relaxed">
+              SSTP needs a publicly-trusted TLS certificate on the panel
+              host. The cert / key paths below are stored as a hint for the
+              operator — the panel does not read or write those files.
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">DNS Server</label>
+              <input
+                type="text"
+                value={formData.sstp_dns}
+                onChange={(e) => updateFormField('sstp_dns', e.target.value)}
+                className="w-full bg-white border border-sky-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                placeholder="8.8.8.8"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Local IP</label>
+              <input
+                type="text"
+                value={formData.sstp_local_ip}
+                onChange={(e) => updateFormField('sstp_local_ip', e.target.value)}
+                className="w-full bg-white border border-sky-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                placeholder="10.50.60.1"
+              />
+            </div>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Remote IP Range</label>
+              <input
+                type="text"
+                value={formData.sstp_remote_ip_range}
+                onChange={(e) => updateFormField('sstp_remote_ip_range', e.target.value)}
+                className="w-full bg-white border border-sky-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                placeholder="10.50.60.10-10.50.60.99"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Certificate Path</label>
+              <input
+                type="text"
+                value={formData.sstp_cert_path}
+                onChange={(e) => updateFormField('sstp_cert_path', e.target.value)}
+                className="w-full bg-white border border-sky-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                placeholder="/etc/ssl/certs/sstp.crt"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Private Key Path</label>
+              <input
+                type="text"
+                value={formData.sstp_key_path}
+                onChange={(e) => updateFormField('sstp_key_path', e.target.value)}
+                className="w-full bg-white border border-sky-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                placeholder="/etc/ssl/private/sstp.key"
+              />
+            </div>
+          </div>
+        );
+
+      case 'hysteria2':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-violet-50/50 rounded-xl border border-violet-100">
+            <h4 className="col-span-full text-xs font-bold text-violet-700 uppercase tracking-widest flex items-center gap-2">
+              <Wifi size={14} />
+              Hysteria 2 Configuration
+            </h4>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Password<Required /></label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.hy2_password}
+                  onChange={(e) => updateFormField('hy2_password', e.target.value)}
+                  className="flex-1 bg-white border border-violet-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                  placeholder="Strong shared secret"
+                />
+                <button
+                  type="button"
+                  onClick={() => updateFormField('hy2_password', uuidv4().replace(/-/g, '').slice(0, 24))}
+                  className="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-bold hover:bg-violet-700 transition-all"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Obfuscation</label>
+              <select
+                value={formData.hy2_obfs}
+                onChange={(e) => updateFormField('hy2_obfs', e.target.value)}
+                className="w-full bg-white border border-violet-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+              >
+                <option value="none">None (raw QUIC)</option>
+                <option value="salamander">Salamander (recommended)</option>
+              </select>
+            </div>
+            {formData.hy2_obfs === 'salamander' && (
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Obfuscation Password<Required /></label>
+                <input
+                  type="text"
+                  value={formData.hy2_obfs_password}
+                  onChange={(e) => updateFormField('hy2_obfs_password', e.target.value)}
+                  className="w-full bg-white border border-violet-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                  placeholder="Salamander shared secret"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">SNI</label>
+              <input
+                type="text"
+                value={formData.hy2_sni}
+                onChange={(e) => updateFormField('hy2_sni', e.target.value)}
+                className="w-full bg-white border border-violet-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                placeholder="www.bing.com"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">ALPN</label>
+              <input
+                type="text"
+                value={formData.hy2_alpn}
+                onChange={(e) => updateFormField('hy2_alpn', e.target.value)}
+                className="w-full bg-white border border-violet-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                placeholder="h3"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Up bandwidth (Mbps)</label>
+              <input
+                type="number"
+                value={formData.hy2_up_mbps}
+                onChange={(e) => updateFormField('hy2_up_mbps', e.target.value)}
+                className="w-full bg-white border border-violet-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                placeholder="0 = unlimited"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Down bandwidth (Mbps)</label>
+              <input
+                type="number"
+                value={formData.hy2_down_mbps}
+                onChange={(e) => updateFormField('hy2_down_mbps', e.target.value)}
+                className="w-full bg-white border border-violet-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                placeholder="0 = unlimited"
+              />
+            </div>
+            <label className="col-span-full flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.hy2_insecure}
+                onChange={(e) => setFormData(prev => ({ ...prev, hy2_insecure: e.target.checked }))}
+                className="rounded text-violet-600 focus:ring-violet-500"
+              />
+              Allow self-signed TLS certificate (insecure — testing only)
+            </label>
+          </div>
+        );
+
+      case 'tuic':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-fuchsia-50/50 rounded-xl border border-fuchsia-100">
+            <h4 className="col-span-full text-xs font-bold text-fuchsia-700 uppercase tracking-widest flex items-center gap-2">
+              <Wifi size={14} />
+              TUIC v5 Configuration
+            </h4>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">UUID<Required /></label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.tuic_uuid}
+                  onChange={(e) => updateFormField('tuic_uuid', e.target.value)}
+                  className="flex-1 bg-white border border-fuchsia-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-fuchsia-500 focus:outline-none"
+                  placeholder="Per-inbound UUID"
+                />
+                <button
+                  type="button"
+                  onClick={() => updateFormField('tuic_uuid', uuidv4())}
+                  className="px-4 py-2 bg-fuchsia-600 text-white rounded-xl text-xs font-bold hover:bg-fuchsia-700 transition-all"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+            <div className="col-span-full">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Password<Required /></label>
+              <input
+                type="text"
+                value={formData.tuic_password}
+                onChange={(e) => updateFormField('tuic_password', e.target.value)}
+                className="w-full bg-white border border-fuchsia-100 rounded-xl px-4 py-2 text-xs font-mono focus:ring-2 focus:ring-fuchsia-500 focus:outline-none"
+                placeholder="Strong shared secret"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Congestion Control</label>
+              <select
+                value={formData.tuic_congestion_control}
+                onChange={(e) => updateFormField('tuic_congestion_control', e.target.value)}
+                className="w-full bg-white border border-fuchsia-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:outline-none"
+              >
+                <option value="bbr">BBR (recommended)</option>
+                <option value="cubic">Cubic</option>
+                <option value="new_reno">New Reno</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">UDP Relay Mode</label>
+              <select
+                value={formData.tuic_udp_relay_mode}
+                onChange={(e) => updateFormField('tuic_udp_relay_mode', e.target.value)}
+                className="w-full bg-white border border-fuchsia-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:outline-none"
+              >
+                <option value="native">Native</option>
+                <option value="quic">QUIC</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">SNI</label>
+              <input
+                type="text"
+                value={formData.tuic_sni}
+                onChange={(e) => updateFormField('tuic_sni', e.target.value)}
+                className="w-full bg-white border border-fuchsia-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:outline-none"
+                placeholder="www.bing.com"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">ALPN</label>
+              <input
+                type="text"
+                value={formData.tuic_alpn}
+                onChange={(e) => updateFormField('tuic_alpn', e.target.value)}
+                className="w-full bg-white border border-fuchsia-100 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:outline-none"
+                placeholder="h3"
+              />
+            </div>
+            <label className="col-span-full flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.tuic_zero_rtt}
+                onChange={(e) => setFormData(prev => ({ ...prev, tuic_zero_rtt: e.target.checked }))}
+                className="rounded text-fuchsia-600 focus:ring-fuchsia-500"
+              />
+              Enable 0-RTT handshake (faster but slightly weaker forward secrecy)
+            </label>
+            <label className="col-span-full flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.tuic_disable_sni}
+                onChange={(e) => setFormData(prev => ({ ...prev, tuic_disable_sni: e.target.checked }))}
+                className="rounded text-fuchsia-600 focus:ring-fuchsia-500"
+              />
+              Disable SNI (skip TLS server name)
+            </label>
           </div>
         );
 

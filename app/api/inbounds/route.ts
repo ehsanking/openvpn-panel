@@ -124,6 +124,52 @@ export async function POST(req: Request) {
         addCol('xray_encryption', data.xray_encryption);
         addCol('xray_network', data.xray_network);
         break;
+
+      case 'ikev2':
+        addCol('ike_auth_method', data.ike_auth_method);
+        addCol('ike_psk', data.ike_psk);
+        addCol('ike_dns', data.ike_dns);
+        addCol('ike_dh_group', data.ike_dh_group);
+        addCol('ike_proposals', data.ike_proposals);
+        addCol('ike_remote_id', data.ike_remote_id);
+        addCol('ike_local_ip_pool', data.ike_local_ip_pool);
+        break;
+
+      case 'pptp':
+        addCol('pptp_dns', data.pptp_dns);
+        addCol('pptp_local_ip', data.pptp_local_ip);
+        addCol('pptp_remote_ip_range', data.pptp_remote_ip_range);
+        break;
+
+      case 'sstp':
+        addCol('sstp_dns', data.sstp_dns);
+        addCol('sstp_local_ip', data.sstp_local_ip);
+        addCol('sstp_remote_ip_range', data.sstp_remote_ip_range);
+        addCol('sstp_cert_path', data.sstp_cert_path);
+        addCol('sstp_key_path', data.sstp_key_path);
+        break;
+
+      case 'hysteria2':
+        addCol('hy2_password', data.hy2_password);
+        addCol('hy2_obfs', data.hy2_obfs);
+        addCol('hy2_obfs_password', data.hy2_obfs_password);
+        addCol('hy2_sni', data.hy2_sni);
+        addCol('hy2_alpn', data.hy2_alpn);
+        addCol('hy2_up_mbps', data.hy2_up_mbps);
+        addCol('hy2_down_mbps', data.hy2_down_mbps);
+        addCol('hy2_insecure', data.hy2_insecure ? 1 : 0);
+        break;
+
+      case 'tuic':
+        addCol('tuic_uuid', data.tuic_uuid);
+        addCol('tuic_password', data.tuic_password);
+        addCol('tuic_congestion_control', data.tuic_congestion_control);
+        addCol('tuic_alpn', data.tuic_alpn);
+        addCol('tuic_udp_relay_mode', data.tuic_udp_relay_mode);
+        addCol('tuic_sni', data.tuic_sni);
+        addCol('tuic_disable_sni', data.tuic_disable_sni ? 1 : 0);
+        addCol('tuic_zero_rtt', data.tuic_zero_rtt ? 1 : 0);
+        break;
     }
 
     const placeholders = columns.map(() => '?').join(', ');
