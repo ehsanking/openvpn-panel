@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const Required = () => <span className="text-red-500 ml-0.5">*</span>;
+
 // Protocol categories and their options
 const PROTOCOL_CATEGORIES = {
   vpn: {
@@ -202,8 +205,9 @@ export default function InboundsView() {
       // Auto-set default port when protocol changes
       if (field === 'protocol') {
         newData.port = getDefaultPort(value);
-        // Auto-generate UUID for Xray protocols
-        if (['vless', 'vmess', 'trojan'].includes(value) && !newData.xray_uuid) {
+        // Always make sure Xray protocols start with a valid UUID — if the
+        // existing one isn't a UUID we replace it.
+        if (['vless', 'vmess', 'trojan'].includes(value) && !UUID_RE.test(newData.xray_uuid)) {
           newData.xray_uuid = uuidv4();
         }
       }
@@ -232,30 +236,120 @@ export default function InboundsView() {
     toast.success('Pre-shared key generated');
   };
 
+  const validateClientSide = (): string | null => {
+    if (!formData.name.trim()) return 'Name is required';
+    if (!formData.server_address.trim()) return 'Server address is required';
+    const port = parseInt(formData.port, 10);
+    if (!port || port < 1 || port > 65535) return 'Port must be between 1 and 65535';
+
+    switch (formData.protocol) {
+      case 'wireguard':
+        if (!formData.wg_public_key.trim()) return 'WireGuard server public key is required';
+        break;
+      case 'l2tp':
+        if (formData.l2tp_psk.trim().length < 8) return 'L2TP pre-shared key must be at least 8 characters';
+        break;
+      case 'vless':
+      case 'vmess':
+      case 'trojan':
+        if (!UUID_RE.test(formData.xray_uuid.trim())) return 'A valid UUID is required for Xray protocols';
+        break;
+    }
+    return null;
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.port || !formData.server_address) {
-      return toast.error('Name, server address and port are required');
+    const clientError = validateClientSide();
+    if (clientError) {
+      toast.error(clientError);
+      return;
     }
-    
+
+    // Strip empty optional fields so the discriminated-union Zod schema on the
+    // server doesn't complain about, say, an empty `xray_uuid` on an OpenVPN
+    // inbound.
+    const payload: Record<string, unknown> = {
+      name: formData.name.trim(),
+      protocol: formData.protocol,
+      port: parseInt(formData.port, 10),
+      server_address: formData.server_address.trim(),
+      remark: formData.remark.trim() || undefined,
+    };
+    const include = (key: string, value: any) => {
+      if (value === '' || value === null || value === undefined) return;
+      payload[key] = value;
+    };
+    switch (formData.protocol) {
+      case 'openvpn':
+        include('ovpn_protocol', formData.ovpn_protocol);
+        include('ovpn_cipher', formData.ovpn_cipher);
+        include('ovpn_auth', formData.ovpn_auth);
+        include('ovpn_dev', formData.ovpn_dev);
+        break;
+      case 'wireguard':
+        include('wg_public_key', formData.wg_public_key.trim());
+        include('wg_private_key', formData.wg_private_key.trim());
+        include('wg_address', formData.wg_address);
+        include('wg_dns', formData.wg_dns);
+        include('wg_mtu', parseInt(formData.wg_mtu, 10) || 1420);
+        break;
+      case 'cisco':
+        include('cisco_auth_method', formData.cisco_auth_method);
+        include('cisco_max_clients', parseInt(formData.cisco_max_clients, 10) || 100);
+        include('cisco_dpd', parseInt(formData.cisco_dpd, 10) || 90);
+        break;
+      case 'l2tp':
+        include('l2tp_psk', formData.l2tp_psk.trim());
+        include('l2tp_dns', formData.l2tp_dns);
+        include('l2tp_local_ip', formData.l2tp_local_ip);
+        include('l2tp_remote_ip_range', formData.l2tp_remote_ip_range);
+        break;
+      case 'vless':
+      case 'vmess':
+      case 'trojan':
+        include('xray_uuid', formData.xray_uuid.trim());
+        if (formData.protocol === 'vless') include('xray_flow', formData.xray_flow);
+        include('xray_network', formData.xray_network);
+        include('xray_security', formData.xray_security);
+        include('xray_sni', formData.xray_sni);
+        include('xray_fingerprint', formData.xray_fingerprint);
+        include('xray_public_key', formData.xray_public_key);
+        include('xray_short_id', formData.xray_short_id);
+        if (formData.xray_network === 'ws') include('xray_path', formData.xray_path);
+        if (formData.xray_network === 'grpc') include('xray_service_name', formData.xray_service_name);
+        break;
+      case 'shadowsocks':
+        include('xray_encryption', formData.xray_encryption);
+        include('xray_network', formData.xray_network);
+        break;
+    }
+
     try {
       const res = await fetch('/api/inbounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          port: parseInt(formData.port),
-          wg_mtu: parseInt(formData.wg_mtu) || 1420,
-          cisco_max_clients: parseInt(formData.cisco_max_clients) || 100,
-          cisco_dpd: parseInt(formData.cisco_dpd) || 90,
-        })
+        credentials: 'include',
+        body: JSON.stringify(payload),
       });
-      
+
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to create inbound');
+        const code = body?.error?.code;
+        const msg = body?.error?.message || 'Failed to create inbound';
+        if (code === 'PORT_IN_USE') {
+          toast.error(msg);
+        } else if (code === 'VALIDATION_ERROR' && body?.error?.details?.fieldErrors) {
+          const fields = Object.entries(body.error.details.fieldErrors as Record<string, string[]>)
+            .map(([k, v]) => `${k}: ${v.join(', ')}`)
+            .join(' · ');
+          toast.error(fields || msg);
+        } else {
+          toast.error(msg);
+        }
+        return;
       }
-      
+
       toast.success('Inbound created successfully');
       setFormData(initialFormData);
       setIsAdding(false);
@@ -366,7 +460,7 @@ export default function InboundsView() {
               </div>
             </div>
             <div className="col-span-full">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Server Public Key</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Server Public Key<Required /></label>
               <input
                 type="text"
                 value={formData.wg_public_key}
@@ -459,7 +553,7 @@ export default function InboundsView() {
               L2TP/IPsec Configuration
             </h4>
             <div className="col-span-full">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pre-Shared Key (PSK)</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pre-Shared Key (PSK)<Required /> <span className="text-slate-300 font-normal lowercase">min 8 chars</span></label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -520,7 +614,7 @@ export default function InboundsView() {
               {formData.protocol.toUpperCase()} Configuration (Xray Core)
             </h4>
             <div className="col-span-full">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">UUID</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">UUID<Required /></label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -733,7 +827,7 @@ export default function InboundsView() {
                 {/* Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Inbound Name</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Inbound Name<Required /></label>
                     <input
                       type="text"
                       value={formData.name}
@@ -743,7 +837,7 @@ export default function InboundsView() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Server Address (IP or Domain)</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Server Address (IP or Domain)<Required /></label>
                     <input
                       type="text"
                       value={formData.server_address}
@@ -774,7 +868,7 @@ export default function InboundsView() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Listener Port</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Listener Port<Required /></label>
                     <input
                       type="number"
                       value={formData.port}

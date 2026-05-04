@@ -61,14 +61,26 @@ export default function SettingsView() {
     setSaving(true);
     setError(null);
     try {
+      // The settings API rejects empty strings (each key has its own min-len
+      // rule), so skip values the admin left blank rather than overwriting
+      // with garbage.
+      const payload: Record<string, string | number> = {};
+      if (config.panelName.trim()) payload.panelName = config.panelName.trim();
+      if (config.publicIp.trim()) payload.publicIp = config.publicIp.trim();
+      if (config.port) payload.port = config.port;
+      if (config.protocol) payload.protocol = config.protocol;
+      if (config.cipher.trim()) payload.cipher = config.cipher.trim();
+      if (config.dnsServer.trim()) payload.dnsServer = config.dnsServer.trim();
+
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        credentials: 'include',
+        body: JSON.stringify(payload)
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || 'Failed to save settings');
+        throw new Error(data?.error?.message || data?.error || 'Failed to save settings');
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);

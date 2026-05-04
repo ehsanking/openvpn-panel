@@ -2,21 +2,23 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Shield, Users, Settings as SettingsIcon, Network, Menu, X } from 'lucide-react';
+import { Shield, Users, Settings as SettingsIcon, Network, LayoutDashboard, Menu, X } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { AdminAuthGate } from '@/components/admin-auth-gate';
+import { DashboardView } from '@/components/views/dashboard-view';
 import { UsersView } from '@/components/views/users-view';
 import SettingsView from '@/components/views/settings-view';
 import InboundsView from '@/components/views/inbounds-view';
 import { Toaster } from 'sonner';
 
-type ViewType = 'inbounds' | 'users' | 'settings';
+type ViewType = 'dashboard' | 'inbounds' | 'users' | 'settings';
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<ViewType>('inbounds');
+  const [activeView, setActiveView] = useState<ViewType>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigation = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inbounds', label: 'Inbounds', icon: Network },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -24,6 +26,12 @@ export default function Home() {
 
   const renderView = () => {
     switch (activeView) {
+      case 'dashboard':
+        return (
+          <DashboardView
+            onNavigate={(target) => setActiveView(target)}
+          />
+        );
       case 'inbounds':
         return <InboundsView />;
       case 'users':
@@ -31,7 +39,7 @@ export default function Home() {
       case 'settings':
         return <SettingsView />;
       default:
-        return <InboundsView />;
+        return <DashboardView onNavigate={(target) => setActiveView(target)} />;
     }
   };
 
