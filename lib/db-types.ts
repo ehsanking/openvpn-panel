@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'reseller' | 'user';
-export type UserStatus = 'active' | 'inactive' | 'suspended' | 'revoked';
+export type UserStatus = 'active' | 'inactive' | 'disabled' | 'suspended' | 'revoked';
 export type ServerStatus = 'online' | 'offline';
 export type Protocol = 'udp' | 'tcp';
 

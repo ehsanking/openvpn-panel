@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { 
-  generateClientConfig, 
-  generateSubscriptionContent,
+import {
+  generateClientConfig,
   InboundConfig,
   ServerInfo,
   UserCredentials

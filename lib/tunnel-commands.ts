@@ -38,8 +38,7 @@ export interface MainServerConfig {
 export function generateMainServerCommand(
   mainServer: MainServerConfig,
   tunnelType: string,
-  tunnelSecret: string,
-  localForwardPort: number
+  tunnelSecret: string
 ): string {
   const authHeader = Buffer.from(`admin:${tunnelSecret}`).toString('base64');
   

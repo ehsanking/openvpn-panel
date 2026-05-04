@@ -18,9 +18,31 @@ async function acquireLock() {
   return release!;
 }
 
+// Idempotent column migrations for already-initialized databases.
+// CREATE TABLE IF NOT EXISTS will not add new columns, so we apply these manually.
+const COLUMN_MIGRATIONS: Array<{ table: string; column: string; definition: string }> = [
+  { table: 'vpn_users', column: 'client_cert', definition: 'TEXT' },
+  { table: 'vpn_users', column: 'client_key', definition: 'TEXT' },
+  { table: 'vpn_users', column: 'wg_privkey', definition: 'TEXT' },
+];
+
+function applyColumnMigrations(database: Database.Database) {
+  for (const m of COLUMN_MIGRATIONS) {
+    try {
+      const existing = database
+        .prepare(`PRAGMA table_info(${m.table})`)
+        .all() as Array<{ name: string }>;
+      if (existing.some(c => c.name === m.column)) continue;
+      database.exec(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.definition}`);
+    } catch {
+      // Table missing or column already added concurrently — safe to ignore.
+    }
+  }
+}
+
 export async function validateConnection() {
   if (db) return;
-  
+
   const dbPath = path.join(process.cwd(), 'panel.sqlite');
   db = new Database(dbPath);
 
@@ -30,6 +52,8 @@ export async function validateConnection() {
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
     db.exec(schemaSql);
   }
+
+  applyColumnMigrations(db);
 }
 
 // Ensure connection is validated on startup
