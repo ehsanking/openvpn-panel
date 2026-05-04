@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Users, Settings as SettingsIcon, Network, Menu, X } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { AdminAuthGate } from '@/components/admin-auth-gate';
 import { UsersView } from '@/components/views/users-view';
 import SettingsView from '@/components/views/settings-view';
 import InboundsView from '@/components/views/inbounds-view';
@@ -35,6 +36,7 @@ export default function Home() {
   };
 
   return (
+    <AdminAuthGate>
     <div className="min-h-screen bg-gray-50 flex">
       <Toaster position="top-right" richColors />
 
@@ -125,5 +127,6 @@ export default function Home() {
         </ErrorBoundary>
       </main>
     </div>
+    </AdminAuthGate>
   );
 }

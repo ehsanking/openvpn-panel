@@ -24,6 +24,45 @@ const COLUMN_MIGRATIONS: Array<{ table: string; column: string; definition: stri
   { table: 'vpn_users', column: 'client_cert', definition: 'TEXT' },
   { table: 'vpn_users', column: 'client_key', definition: 'TEXT' },
   { table: 'vpn_users', column: 'wg_privkey', definition: 'TEXT' },
+  // vpn_inbounds columns added after the original schema shipped.
+  { table: 'vpn_inbounds', column: 'server_address', definition: "VARCHAR(255) NOT NULL DEFAULT ''" },
+  { table: 'vpn_inbounds', column: 'updated_at', definition: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
+  { table: 'vpn_inbounds', column: 'status', definition: "VARCHAR(50) DEFAULT 'active'" },
+  // OpenVPN
+  { table: 'vpn_inbounds', column: 'ovpn_protocol', definition: "VARCHAR(10) DEFAULT 'udp'" },
+  { table: 'vpn_inbounds', column: 'ovpn_cipher', definition: "VARCHAR(50) DEFAULT 'AES-256-GCM'" },
+  { table: 'vpn_inbounds', column: 'ovpn_auth', definition: "VARCHAR(50) DEFAULT 'SHA256'" },
+  { table: 'vpn_inbounds', column: 'ovpn_dev', definition: "VARCHAR(10) DEFAULT 'tun'" },
+  // WireGuard
+  { table: 'vpn_inbounds', column: 'wg_private_key', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'wg_public_key', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'wg_address', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'wg_dns', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'wg_mtu', definition: 'INT DEFAULT 1420' },
+  { table: 'vpn_inbounds', column: 'wg_persistent_keepalive', definition: 'INT DEFAULT 25' },
+  // Cisco AnyConnect (ocserv)
+  { table: 'vpn_inbounds', column: 'cisco_auth_method', definition: "VARCHAR(50) DEFAULT 'password'" },
+  { table: 'vpn_inbounds', column: 'cisco_max_clients', definition: 'INT DEFAULT 100' },
+  { table: 'vpn_inbounds', column: 'cisco_dpd', definition: 'INT DEFAULT 90' },
+  // L2TP/IPsec
+  { table: 'vpn_inbounds', column: 'l2tp_psk', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'l2tp_dns', definition: 'VARCHAR(100)' },
+  { table: 'vpn_inbounds', column: 'l2tp_local_ip', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'l2tp_remote_ip_range', definition: 'VARCHAR(100)' },
+  // Xray
+  { table: 'vpn_inbounds', column: 'xray_protocol', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'xray_uuid', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'xray_flow', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'xray_network', definition: "VARCHAR(50) DEFAULT 'tcp'" },
+  { table: 'vpn_inbounds', column: 'xray_security', definition: "VARCHAR(50) DEFAULT 'reality'" },
+  { table: 'vpn_inbounds', column: 'xray_sni', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'xray_fingerprint', definition: "VARCHAR(50) DEFAULT 'chrome'" },
+  { table: 'vpn_inbounds', column: 'xray_public_key', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'xray_short_id', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'xray_path', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'xray_service_name', definition: 'VARCHAR(255)' },
+  { table: 'vpn_inbounds', column: 'xray_encryption', definition: 'VARCHAR(50)' },
+  { table: 'vpn_inbounds', column: 'extra_config', definition: 'TEXT' },
 ];
 
 function applyColumnMigrations(database: Database.Database) {

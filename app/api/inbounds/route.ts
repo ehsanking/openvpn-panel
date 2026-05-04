@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { requireAdmin } from '@/lib/auth-utils';
+
+export const dynamic = 'force-dynamic';
 
 // All supported protocols
 const SUPPORTED_PROTOCOLS = [
@@ -7,7 +10,9 @@ const SUPPORTED_PROTOCOLS = [
   'vless', 'vmess', 'trojan', 'shadowsocks'
 ];
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const [inbounds] = await db.execute('SELECT * FROM vpn_inbounds ORDER BY created_at DESC');
     return NextResponse.json({ inbounds });
@@ -18,6 +23,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const body = await req.json();
     const { 

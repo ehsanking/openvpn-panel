@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { z } from 'zod';
 import { handleApiError } from '@/lib/api-utils';
-
 import { auditLog } from '@/lib/audit-logger';
+import { requireAdmin } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const rows = await query('SELECT `key`, `value` FROM settings');
     const config: Record<string, string> = {};
@@ -38,6 +40,8 @@ const ValidationRules: Record<string, z.ZodTypeAny> = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const body = await req.json();
     const validatedBody = SettingSchema.parse(body);

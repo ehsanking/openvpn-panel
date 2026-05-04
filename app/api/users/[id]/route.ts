@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import pool from '@/lib/db';
 import { auditLog } from '@/lib/audit-logger';
+import { requireAdmin } from '@/lib/auth-utils';
+
+export const dynamic = 'force-dynamic';
 
 const UpdateUserSchema = z.object({
   role: z.enum(['admin', 'user', 'reseller']).optional().nullable(),
@@ -16,36 +19,41 @@ const UpdateUserSchema = z.object({
   port: z.number().optional().nullable(),
   main_protocol: z.string().optional().nullable(),
   password: z.string().optional().nullable(),
+  inboundIds: z.array(z.number().int()).optional(),
 });
+
+async function fetchUserWithInbounds(id: string | number) {
+  const [users]: any = await pool.execute('SELECT * FROM vpn_users WHERE id = ?', [id]);
+  if (!users.length) return null;
+  const user = users[0];
+  const [inboundRows]: any = await pool.execute(
+    `SELECT i.id, i.name, i.protocol, i.port, i.server_address, i.status
+     FROM vpn_inbounds i
+     INNER JOIN user_inbounds ui ON ui.inbound_id = i.id
+     WHERE ui.user_id = ?`,
+    [id]
+  );
+  return { ...user, inbounds: inboundRows };
+}
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
   try {
     const { id } = await params;
-    const [rows]: any = await pool.execute(
-      'SELECT * FROM vpn_users WHERE id = ?',
-      [id]
-    );
-
-    if (rows.length === 0) {
+    const user = await fetchUserWithInbounds(id);
+    if (!user) {
       return NextResponse.json({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'User not found'
-        }
+        error: { code: 'NOT_FOUND', message: 'User not found' }
       }, { status: 404 });
     }
-
-    return NextResponse.json({ data: rows[0] });
+    return NextResponse.json({ data: user });
   } catch (error: any) {
     return NextResponse.json({
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: 'Failed to fetch user',
-        details: error.message
-      }
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch user', details: error.message }
     }, { status: 500 });
   }
 }
@@ -54,6 +62,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
   try {
     const { id } = await params;
     const body = await request.json();
@@ -89,42 +99,60 @@ export async function PATCH(
       updates.push('expires_at = ?');
       values.push(validatedData.data.expires_at ? new Date(validatedData.data.expires_at) : null);
     }
-    
+
     if (validatedData.data.password) {
       updates.push('password_hash = ?');
       values.push(validatedData.data.password);
     }
 
-    if (updates.length === 0) {
-      return NextResponse.json({ message: 'No updates provided' });
+    let userExists = false;
+
+    if (updates.length > 0) {
+      values.push(id);
+      const [result]: any = await pool.execute(
+        `UPDATE vpn_users SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      );
+      if (result.affectedRows === 0) {
+        return NextResponse.json({
+          error: { code: 'NOT_FOUND', message: 'User not found' }
+        }, { status: 404 });
+      }
+      userExists = true;
     }
 
-    values.push(id);
-
-    const [result]: any = await pool.execute(
-      `UPDATE vpn_users SET ${updates.join(', ')} WHERE id = ?`,
-      values
-    );
-
-    if (result.affectedRows === 0) {
-      return NextResponse.json({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'User not found'
+    // Sync the inbound assignments when the caller sent `inboundIds`. The
+    // payload represents the full desired set (idempotent replace), matching
+    // what the create endpoint accepts.
+    if (validatedData.data.inboundIds !== undefined) {
+      if (!userExists) {
+        const [check]: any = await pool.execute('SELECT id FROM vpn_users WHERE id = ?', [id]);
+        if (check.length === 0) {
+          return NextResponse.json({
+            error: { code: 'NOT_FOUND', message: 'User not found' }
+          }, { status: 404 });
         }
-      }, { status: 404 });
+      }
+      await pool.execute('DELETE FROM user_inbounds WHERE user_id = ?', [id]);
+      for (const inboundId of validatedData.data.inboundIds) {
+        await pool.execute(
+          'INSERT INTO user_inbounds (user_id, inbound_id) VALUES (?, ?)',
+          [id, inboundId]
+        );
+      }
+    }
+
+    if (updates.length === 0 && validatedData.data.inboundIds === undefined) {
+      return NextResponse.json({ message: 'No updates provided' });
     }
 
     await auditLog(null, 'USER_UPDATED', `User ${id} updated with ${JSON.stringify(validatedData.data)}`);
 
-    return NextResponse.json({ message: 'User updated successfully' });
+    const updated = await fetchUserWithInbounds(id);
+    return NextResponse.json({ data: updated, message: 'User updated successfully' });
   } catch (error: any) {
     return NextResponse.json({
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: 'Failed to update user',
-        details: error.message
-      }
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to update user', details: error.message }
     }, { status: 500 });
   }
 }
@@ -133,6 +161,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
   try {
     const { id } = await params;
 
@@ -143,10 +173,7 @@ export async function DELETE(
 
     if (result.affectedRows === 0) {
       return NextResponse.json({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'User not found'
-        }
+        error: { code: 'NOT_FOUND', message: 'User not found' }
       }, { status: 404 });
     }
 
@@ -155,11 +182,7 @@ export async function DELETE(
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: 'Failed to delete user',
-        details: error.message
-      }
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to delete user', details: error.message }
     }, { status: 500 });
   }
 }

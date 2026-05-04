@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import pool from '@/lib/db';
 import { auditLog } from '@/lib/audit-logger';
+import { requireAdmin } from '@/lib/auth-utils';
+
+export const dynamic = 'force-dynamic';
 
 const UserQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -27,6 +30,8 @@ const CreateUserSchema = z.object({
 });
 
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const validatedQuery = UserQuerySchema.safeParse(Object.fromEntries(searchParams));
@@ -46,19 +51,18 @@ export async function GET(request: Request) {
 
     let sql = 'SELECT * FROM vpn_users';
     let countSql = 'SELECT COUNT(*) as total FROM vpn_users';
-    const params: any[] = [];
+    const filterParams: any[] = [];
 
     if (search) {
       sql += ' WHERE username LIKE ?';
       countSql += ' WHERE username LIKE ?';
-      params.push(`%${search}%`);
+      filterParams.push(`%${search}%`);
     }
 
     sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
 
-    const [rows] = await pool.execute(sql, params);
-    const [countResult]: any = await pool.execute(countSql, params.slice(0, 1));
+    const [rows] = await pool.execute(sql, [...filterParams, limit, offset]);
+    const [countResult]: any = await pool.execute(countSql, filterParams);
     const total = countResult[0].total;
 
     return NextResponse.json({
@@ -82,6 +86,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
   try {
     const body = await request.json();
     const validatedData = CreateUserSchema.safeParse(body);

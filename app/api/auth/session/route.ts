@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies, headers } from 'next/headers';
 import * as jose from 'jose';
 import bcrypt from 'bcryptjs';
-import { getJwtSecret } from '@/lib/auth-utils';
+import { getJwtSecret, verifyAdminToken } from '@/lib/auth-utils';
 import { isRateLimited } from '@/lib/rate-limit';
 import { auditLog } from '@/lib/audit-logger';
 
@@ -11,27 +11,14 @@ export const dynamic = 'force-dynamic';
 const ADMIN_USER = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASS_HASH = process.env.ADMIN_PASSWORD_HASH;
 
-// Removed local getSecret
-
-export async function GET() {
-  const cookieStore = await cookies();
-  const session = cookieStore.get('vpn_session_jwt');
-
-  if (session) {
-      try {
-          const secret = await getJwtSecret();
-          const { payload } = await jose.jwtVerify(session.value, secret);
-          if (payload.role === 'admin') {
-                return NextResponse.json({ 
-                user: { email: ADMIN_USER + '@local', displayName: 'Administrator' },
-                isAdmin: true 
-                });
-          }
-      } catch {
-          // Token invalid, fallthrough
-      }
+export async function GET(req: Request) {
+  const payload = await verifyAdminToken(req);
+  if (payload) {
+    return NextResponse.json({
+      user: { email: ADMIN_USER + '@local', displayName: 'Administrator', role: 'admin' },
+      isAdmin: true
+    });
   }
-
   return NextResponse.json({ user: null, isAdmin: false });
 }
 
@@ -64,21 +51,31 @@ export async function POST(req: Request) {
     if (username === ADMIN_USER && isPasswordValid) {
       const cookieStore = await cookies();
       const secret = await getJwtSecret();
+      const expiresInSeconds = 60 * 60 * 24; // 1 day
       const token = await new jose.SignJWT({ role: 'admin' })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
-        .setExpirationTime('24h')
+        .setExpirationTime(`${expiresInSeconds}s`)
         .sign(secret);
-      
+
       cookieStore.set('vpn_session_jwt', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 // 1 day
+        maxAge: expiresInSeconds
       });
 
       await auditLog('admin', 'admin_login_success', `Username: ${username}`);
-      return NextResponse.json({ success: true });
+      // The native app uses `token` + `expiresIn` to authenticate via the
+      // `Authorization: Bearer ...` header. The web panel ignores them and
+      // relies on the cookie set above.
+      return NextResponse.json({
+        success: true,
+        token,
+        tokenType: 'Bearer',
+        expiresIn: expiresInSeconds,
+        user: { username: ADMIN_USER, role: 'admin' }
+      });
     }
 
     await auditLog('anonymous', 'admin_login_failed', `Username: ${username}`);
