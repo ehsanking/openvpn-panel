@@ -127,11 +127,31 @@ function applyIndexMigrations(database: Database.Database) {
   }
 }
 
+function applyPragmas(database: Database.Database) {
+  // WAL: writers don't block readers and vice-versa. Standard SQLite
+  // recommendation for any embedded server use.
+  database.pragma('journal_mode = WAL');
+  // NORMAL is the right pairing for WAL: durable on graceful shutdown,
+  // ~2x faster than FULL, no real corruption risk in practice.
+  database.pragma('synchronous = NORMAL');
+  // Enforce ON DELETE CASCADE / SET NULL — SQLite ships this off by
+  // default. Without it, deleting an inbound would leave dangling rows
+  // in user_inbounds.
+  database.pragma('foreign_keys = ON');
+  // If another connection holds a write lock, wait up to 5s instead of
+  // immediately erroring out. The acquireLock() helper already serialises
+  // writes within this process, but better-sqlite3 may still hit this on
+  // a `next dev` hot-reload or in tests.
+  database.pragma('busy_timeout = 5000');
+}
+
 export async function validateConnection() {
   if (db) return;
 
   const dbPath = path.join(process.cwd(), 'panel.sqlite');
   db = new Database(dbPath);
+
+  applyPragmas(db);
 
   // Initialize schema if not already initialized
   const schemaPath = path.join(process.cwd(), 'schema.sql');
