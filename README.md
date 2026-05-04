@@ -1,122 +1,93 @@
 <div align="center">
   <h1>⚡ Power VPN Manager</h1>
-  <p><b>Enterprise-grade fleet management system for OpenVPN, WireGuard, Cisco AnyConnect, and L2TP/IPsec.</b></p>
-  
+  <p><b>Multi-protocol VPN control plane: OpenVPN, WireGuard, Cisco AnyConnect, L2TP/IPsec, VLESS, VMess, Trojan, Shadowsocks.</b></p>
+
   <p>
-    <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js" alt="Next.js" />
+    <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js" alt="Next.js" />
     <img src="https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square&logo=typescript" alt="TypeScript" />
-    <img src="https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=flat-square&logo=tailwind-css" alt="Tailwind CSS" />
-    <img src="https://img.shields.io/badge/Database-MySQL-4169E1?style=flat-square&logo=mysql" alt="MySQL" />
+    <img src="https://img.shields.io/badge/Database-SQLite-003B57?style=flat-square&logo=sqlite" alt="SQLite" />
     <img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License" />
   </p>
 </div>
 
 ---
 
-This project is a high-performance, modern Control Plane designed to manage dozens of VPN nodes, handle seamless certificate and key issuances, and provide a secure, real-time dashboard for administrators, resellers, and clients alike.
+Power VPN is an **API-first** control plane for managing inbounds (per-protocol gateways) and the users who consume them. The web panel and the planned dedicated mobile/desktop app both speak the same REST surface — see [`API.md`](./API.md) for the full spec.
 
-## ✨ Core Features & Enhancements
+## ✨ Features
 
-### 🚀 Modern Multi-Protocol Support
-Full integration, provisioning, and management for all major VPN protocols from a single dashboard:
-- **OpenVPN** (UDP/TCP)
-- **Cisco AnyConnect** (Ocserv)
-- **WireGuard** (wg1)
-- **L2TP/IPsec**
-- **Xray Core** (VLESS / VMess / Trojan) with auto-UUID generation & Quick Scan configs.
+- **8 protocols** out of the box: OpenVPN (UDP/TCP), WireGuard, Cisco AnyConnect (ocserv), L2TP/IPsec, and the Xray family — VLESS, VMess, Trojan, Shadowsocks.
+- **Strict port hygiene** — every TCP/UDP port belongs to exactly one inbound (enforced by API check + DB unique index). No accidental cross-protocol clashes.
+- **Per-user inbound assignments**: a user must be attached to one or more inbounds; the subscription URL emits a config for each one.
+- **Per-protocol validation**: each protocol's required fields (WireGuard server pubkey, L2TP PSK, Xray UUID, Shadowsocks cipher, etc.) are enforced by Zod before anything reaches the DB.
+- **Bearer-token auth** for the dedicated app, plus HttpOnly cookies for the web panel — same endpoints, two credentials styles.
+- **Embedded SQLite** — no external DB to operate. Self-healing column migrations keep older deployments aligned with the latest schema.
+- **Subscription portal** at `/subscription/<username>` with QR codes and copy-link buttons for every assigned inbound.
 
-### 🔌 Multi-Tenancy Port Architecture
-- Flexible **Port Management**: Dynamically assign ports during user provisioning.
-- **Port Reuse**: Multiple users can share the same port simultaneously on identical protocols.
-- **Conflict Prevention**: Built-in validation natively preventing protocol collisions (e.g., blocking OpenVPN and Wireguard sharing the same underlying port).
+## 🗺️ Project layout
 
-### 🔔 Beautiful UI & UX Real-time Feedback
-- Integrated **SweetAlert2** for fluid, elegant, informative alerts for errors, port conflicts, and user operations.
+```text
+app/
+  api/                 REST endpoints (admin + client)
+  page.tsx             admin shell (Inbounds / Users / Settings)
+  client/page.tsx      lightweight customer portal
+  subscription/[token] per-user QR + config viewer
+components/            React UI
+lib/
+  db.ts                SQLite pool + idempotent column migrations
+  auth-utils.ts        JWT helpers + requireAdmin guard (cookie OR Bearer)
+  inbound-validation.ts  per-protocol Zod schemas
+  config-generators.ts   per-protocol client-config builders
+  pki-service.ts       OpenVPN CA + per-user client certs
+schema.sql             canonical DDL (re-applied on every boot via IF NOT EXISTS)
+```
 
-### 🗄️ Database Scalability & Stability
-- **MySQL Support**: Robust schema for MySQL 8.0+.
-- **Persistent Sessions**: Upgraded `SECRET_KEY` (JWT secret) storage for robust security preventing forced admin logouts after service restarts.
+## 🚀 Installation
 
-### 👥 Advanced User Management
-- **Single & Bulk Provisioning**: Create standard or multiple users instantly using the bulk generation tool.
-- **Granular Quotas**: Set specific data limits (GB), maximum simultaneous connections (per protocol), and flexible expiration dates.
-- **Multi-Password Layers**: Define custom, unique passwords specific to L2TP and Cisco protocols for users along with global ones.
-- **Live Monitoring & State**: View real-time uploaded/downloaded bandwidth and instantly toggle account access capabilities (activate/deactivate).
-
-### 💼 Integrated Reseller (Sub-Admin) System
-- Easily create and categorize accounts with `Reseller` roles.
-- Allocate and strictly limit the max number of users they can create.
-- Bind overall traffic/data quotas on a per-reseller basis.
-- Sub-Admins get an isolated view to safely manage only their assigned users.
-
-### 🌍 Multi-Node Fleet Management
-- **Centralized Control**: Seamlessly orchestrate synchronization of users across multiple servers/nodes for all available protocols.
-- **Node Health Tracking**: Track load scores and the online/offline status of interconnected nodes.
-- **Protocol Discovery**: New nodes intelligently broadcast their supported protocol features allowing granular, conditional network routing.
-
-### 📱 Responsive Client Portal
-- **Subscriptions URL**: Every user features a unique login link to access their portal securely.
-- **Smart QR Codes**: Instantly scan to connect configurations for mobile clients utilizing QR technology.
-- **Quick Downloads**: Direct download links for `.ovpn` files and other required credentials.
-
----
-
-## 🏗 Architecture & Stack 
-
-- **Frontend**: Next.js 15 App Router, React Server Components, Tailwind CSS, styled by Lucide Icons & Framer Motion.
-- **Backend / API**: Expressing RESTful structures inside Next.js API Routes, providing robust programmatic automation handling.
-- **Security**: Double-hashed `bcrypt` password protection and robust JWT session cookies over HTTP-only strict endpoints.
-
----
-
-## 🚀 Installation & Deployment
-
-### ⚡ Automatic One-Line Installation (Recommended)
-You can set up the entire Power VPN Manager, including SSL via Let's Encrypt with auto-renewal, missing dependencies, and initial configuration prompts by running a single command:
+### Quick start (bare metal)
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/ehsanking/Power-VPN/main/install.sh)
+git clone https://github.com/ehsanking/Power-VPN.git
+cd Power-VPN
+bash install.sh        # interactive: asks for admin user/password & CORS origin
+npm start              # listens on PORT (default 3000)
 ```
-*The interactive installer will ask for your domain, email, MySQL details, and Admin credentials. It will automatically issue the SSL certificate and deploy the panel securely.*
 
----
+`install.sh` will:
 
-### Manual Setup (Development / Custom)
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/ehsanking/Power-VPN.git
-   cd Power-VPN
-   ```
+1. Verify Node.js ≥ 18 is installed.
+2. Hash the admin password with bcrypt (cost 12).
+3. Generate a 32-byte JWT secret.
+4. Write `.env` (mode `0600`) and `.panel_credentials.txt` (read once, then delete).
+5. Run `npm ci && npm run build`.
 
-2. **Database Schema Injection**:
-   Configure `.env` with MySQL credentials, then build the tables:
-   ```bash
-   mysql -u root -p < schema.sql
-   ```
+The SQLite database (`panel.sqlite`) is created on the first request — there is no separate DB step.
 
-3. **Run The Panel**:
-   ```bash
-   npm install
-   npm run build
-   npm start
-   ```
+### Docker
 
-*(For production environments, utilizing PM2, Docker, or Google Cloud Run is heavily recommended).*
+```bash
+cp .env.example .env   # fill in ADMIN_USERNAME, ADMIN_PASSWORD_HASH, JWT_SECRET, ALLOWED_ORIGINS
+docker compose up -d   # builds the image, mounts a `panel-data` volume for state
+```
 
----
+The Compose file mounts the SQLite file and the JWT secret under a named volume (`panel-data:/data`), so rebuilding the container does not wipe state.
 
-## 🤝 Community & Support
-- **Author**: EHSANKiNG ([@ehsanking](https://github.com/ehsanking))
-- **Contributions**: Pull requests, feature requests, and bug finding strongly encouraged!
-- **License**: MIT
+## 🔐 Authentication & API
 
----
+- Admin login: `POST /api/auth/session` → returns `{ token, expiresIn, ... }` and sets the `vpn_session_jwt` cookie.
+- All admin endpoints accept either the cookie or `Authorization: Bearer <jwt>`.
+- End-user clients fetch their config bundle from `GET /api/subscription/<token>` (no admin auth required).
 
-## 💖 Support The Project
-If you find this scalable architecture and real-time dashboard useful, consider keeping the project maintained by donating via Tether (USDT):
+The full surface — including request/response shapes, error codes, and CORS notes for the dedicated app — lives in [`API.md`](./API.md).
 
-- **Network**: Tether (TRC20 / ERC20) 
-- **Address**: `TKPswLQqd2e73UTGJ5prxVXBVo7MTsWedU`
+## 🧰 Day-to-day CLI
 
----
-*Optimized for privacy, security, and low-latency performance worldwide.*
+```bash
+bash powervpn.sh
+```
+
+Lets you change the admin username/password, switch the panel port, run `npm install + build`, and restart the panel under systemd / docker compose / pm2 (whichever it detects).
+
+## 🤝 License
+
+MIT. Pull requests welcome — please target the existing test (`npm test`) and lint (`npm run lint`) suites.

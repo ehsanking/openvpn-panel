@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS vpn_inbounds (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- One inbound per TCP/UDP port. Two inbounds can never share a port even
+-- if they speak different protocols.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vpn_inbounds_port ON vpn_inbounds (port);
+
 CREATE TABLE IF NOT EXISTS vpn_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username VARCHAR(255) NOT NULL UNIQUE,

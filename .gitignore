@@ -26,6 +26,13 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .panel_credentials.txt
+.jwt_secret
+
+# Runtime data
+panel.sqlite
+panel.sqlite-journal
+panel.sqlite-wal
+panel.sqlite-shm
 
 # Vercel
 .vercel

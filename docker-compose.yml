@@ -1,13 +1,23 @@
 services:
   app:
     build: .
+    image: powervpn-panel:local
+    container_name: powervpn
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     env_file: .env
-    depends_on:
-      db:
-        condition: service_healthy
-    # Defect 48: Resource limits
+    volumes:
+      # Persists panel.sqlite and .jwt_secret across rebuilds. Mount as a
+      # named volume rather than a host path so it survives `docker compose
+      # down` without bind-mount permission headaches.
+      - panel-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
@@ -16,18 +26,5 @@ services:
         reservations:
           memory: 128M
 
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-vpn_panel}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1024M
+volumes:
+  panel-data:

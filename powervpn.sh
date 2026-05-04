@@ -1,30 +1,30 @@
-#!/bin/bash
-# Power VPN Terminal CLI System
-# Run this script to manage the node locally.
+#!/usr/bin/env bash
+# Power VPN — local CLI for the panel admin
 
-# Set strict mode (disabled for ease of reading prompts, but could be useful)
-# set -e
+set -u
 
 ENV_FILE=".env"
-if [ ! -f "$ENV_FILE" ]; then
-    echo "Creating new .env file..."
-    touch "$ENV_FILE"
-fi
+[[ -f "$ENV_FILE" ]] || touch "$ENV_FILE"
+
+color_yellow=$'\e[1;33m'
+color_cyan=$'\e[1;36m'
+color_green=$'\e[1;32m'
+color_red=$'\e[1;31m'
+color_reset=$'\e[0m'
 
 show_menu() {
     clear
-    echo -e "\e[1;33m==========================================\e[0m"
-    echo -e "             \e[1;36m⚡ Power VPN CLI\e[0m             "
-    echo -e "\e[1;33m==========================================\e[0m"
-    echo -e "\e[1;32m1)\e[0m Change Admin Username"
-    echo -e "\e[1;32m2)\e[0m Change Admin Password"
-    echo -e "\e[1;32m3)\e[0m Change Panel Port"
-    echo -e "\e[1;32m4)\e[0m Update App & Packages"
-    echo -e "\e[1;34m5)\e[0m Run Database Migration"
-    echo -e "\e[1;31m6)\e[0m Remove Project"
-    echo -e "\e[1;35m7)\e[0m Install / Protocol Modules Manager"
-    echo -e "\e[1;37m0)\e[0m Exit"
-    echo -e "\e[1;33m==========================================\e[0m"
+    echo "${color_yellow}==========================================${color_reset}"
+    echo "             ${color_cyan}⚡ Power VPN CLI${color_reset}             "
+    echo "${color_yellow}==========================================${color_reset}"
+    echo "${color_green}1)${color_reset} Change admin username"
+    echo "${color_green}2)${color_reset} Change admin password (regenerates bcrypt hash)"
+    echo "${color_green}3)${color_reset} Change panel port"
+    echo "${color_green}4)${color_reset} Update packages and rebuild"
+    echo "${color_green}5)${color_reset} Restart panel (systemd / pm2 / docker)"
+    echo "${color_red}6)${color_reset} Wipe build artifacts (keeps panel.sqlite + .env)"
+    echo "${color_yellow}0)${color_reset} Exit"
+    echo "${color_yellow}==========================================${color_reset}"
     echo -n "Select an option: "
 }
 
@@ -32,149 +32,96 @@ update_env() {
     local KEY=$1
     local VAL=$2
     if grep -q "^${KEY}=" "$ENV_FILE"; then
-        # Replace existing key
-        sed -i "s/^${KEY}=.*/${KEY}=${VAL}/" "$ENV_FILE"
+        # Use a sentinel so `/` and `&` in the value don't break the sed.
+        local tmp
+        tmp=$(mktemp)
+        awk -v k="$KEY" -v v="$VAL" -F= '
+            BEGIN { OFS="=" }
+            $1 == k { print k, v; next }
+            { print }
+        ' "$ENV_FILE" > "$tmp" && mv "$tmp" "$ENV_FILE"
     else
-        # Add new key
         echo "${KEY}=${VAL}" >> "$ENV_FILE"
     fi
 }
-
-# Ensure execution in the correct folder if linked globally
-# cd /path/to/project... assuming script is executed within project dir.
 
 while true; do
     show_menu
     read -r option
     case $option in
         1)
-            echo -n "Enter new Admin Username: "
-            read -r new_user
+            read -rp "New admin username: " new_user
             if [[ -n "$new_user" ]]; then
                 update_env "ADMIN_USERNAME" "$new_user"
-                echo -e "\e[1;32mUsername updated in .env\e[0m (Please restart the panel services to apply)"
+                echo "${color_green}Updated. Restart the panel to apply.${color_reset}"
             fi
             sleep 2
             ;;
         2)
-            echo -n "Enter new Admin Password: "
-            read -s new_pass
-            echo ""
+            read -rsp "New admin password: " new_pass; echo
             if [[ -n "$new_pass" ]]; then
-                new_hash=$(node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync('$new_pass', 10));")
-                update_env "ADMIN_PASSWORD_HASH" "$new_hash"
-                # Remove plain text just in case it exists in older env file
+                if ! command -v node >/dev/null 2>&1; then
+                    echo "${color_red}node not found in PATH.${color_reset}"; sleep 2; continue
+                fi
+                hash=$(node -e "process.stdout.write(require('bcryptjs').hashSync(process.argv[1], 12))" "$new_pass")
+                update_env "ADMIN_PASSWORD_HASH" "$hash"
+                # Drop legacy key if it exists.
                 sed -i '/^ADMIN_PASSWORD=/d' "$ENV_FILE"
-                echo -e "\e[1;32mPassword updated in .env\e[0m (Please restart the panel services to apply)"
+                echo "${color_green}Password hash updated. Restart the panel to apply.${color_reset}"
             fi
             sleep 2
             ;;
         3)
-            echo -n "Enter new Panel Port (e.g., 3000): "
-            read -r new_port
-            if [[ "$new_port" =~ ^[0-9]+$ ]]; then
+            read -rp "New panel port: " new_port
+            if [[ "$new_port" =~ ^[0-9]+$ ]] && (( new_port > 0 && new_port < 65536 )); then
                 update_env "PORT" "$new_port"
-                echo -e "\e[1;32mPort updated in .env\e[0m (Please restart the panel services to apply)"
+                echo "${color_green}Port updated. Restart the panel to apply.${color_reset}"
             else
-                echo -e "\e[1;31mInvalid Port format.\e[0m"
+                echo "${color_red}Invalid port.${color_reset}"
             fi
             sleep 2
             ;;
         4)
-            echo "Checking and Updating Packages..."
-            npm update
-            echo "Rebuilding Power VPN Panel..."
+            echo "Updating packages…"
+            npm install
+            echo "Rebuilding…"
             npm run build
-            echo -e "\e[1;32mUpdate complete! Please restart the service (e.g., systemctl restart powervpn).\e[0m"
-            echo "Press ENTER to continue."
-            read -r dummy
+            echo "${color_green}Update complete. Restart the panel to apply.${color_reset}"
+            read -rp "Press ENTER to continue."
             ;;
         5)
-            echo "Running Database Migration..."
-            # Extract token and port from .env
-            if [ -f "$ENV_FILE" ]; then
-                TOKEN=$(grep "^MIGRATION_TOKEN=" $ENV_FILE | cut -d '=' -f2)
-                PORT=$(grep "^PORT=" $ENV_FILE | cut -d '=' -f2)
-                PORT=${PORT:-3000}
-                if [ -n "$TOKEN" ]; then
-                   echo -e "\e[1;33mExecuting migration over HTTP...\e[0m"
-                   curl -s -X GET http://localhost:$PORT/api/migrate -H "x-migration-token: $TOKEN"
-                   echo -e "\n\e[1;32mMigration completed.\e[0m"
-                else
-                   echo -e "\e[1;31mMIGRATION_TOKEN not found in .env.\e[0m"
-                fi
+            if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files | grep -q '^powervpn'; then
+                sudo systemctl restart powervpn
+                echo "${color_green}systemctl restart powervpn${color_reset}"
+            elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q '^powervpn$'; then
+                docker compose restart app
+                echo "${color_green}docker compose restart app${color_reset}"
+            elif command -v pm2 >/dev/null 2>&1 && pm2 list 2>/dev/null | grep -q powervpn; then
+                pm2 restart powervpn
+                echo "${color_green}pm2 restart powervpn${color_reset}"
             else
-                echo -e "\e[1;31mNo .env file found.\e[0m"
+                echo "${color_red}No managed process found (systemd / docker / pm2). Restart manually.${color_reset}"
             fi
-            sleep 3
+            sleep 2
             ;;
         6)
-            echo -e "\e[1;31mWARNING:\e[0m This will completely remove the Power VPN Panel and ALL DATA!"
-            echo -n "Are you sure? (Type 'YES' to confirm): "
-            read -r confirm
-            if [ "$confirm" == "YES" ]; then
-                echo "Removing Project files..."
-                # Use caution with rm -rf
+            echo "${color_red}This removes node_modules, .next, package-lock.json.${color_reset}"
+            echo "${color_red}panel.sqlite, .env and .jwt_secret are KEPT.${color_reset}"
+            read -rp "Type YES to confirm: " confirm
+            if [[ "$confirm" == "YES" ]]; then
                 rm -rf node_modules .next package-lock.json
-                echo -e "\e[1;32mProject dependencies and builds removed. You can now delete the directory.\e[0m"
-                exit 0
+                echo "${color_green}Cleaned.${color_reset}"
             else
                 echo "Aborted."
-                sleep 2
             fi
-            ;;
-        7)
-            while true; do
-                clear
-                echo -e "\e[1;35m--- Protocol Modules Manager ---\e[0m"
-                echo "Select a protocol to Uninstall/Remove from system:"
-                echo -e "  \e[1;33m1)\e[0m Uninstall OpenVPN Core"
-                echo -e "  \e[1;33m2)\e[0m Uninstall Cisco AnyConnect (Ocserv)"
-                echo -e "  \e[1;33m3)\e[0m Uninstall L2TP/IPsec (xl2tpd)"
-                echo -e "  \e[1;33m4)\e[0m Uninstall WireGuard"
-                echo -e "  \e[1;32m0)\e[0m Back to Main Menu"
-                echo -n "Choice: "
-                read -r proto
-                case $proto in
-                   1) 
-                      echo "Removing OpenVPN dependencies..."
-                      # systemctl stop openvpn@server
-                      # apt-get remove --purge openvpn -y
-                      echo -e "\e[1;32mOpenVPN removed successfully.\e[0m"
-                      sleep 2
-                      ;;
-                   2) 
-                      echo "Removing Cisco AnyConnect (ocserv)..."
-                      # systemctl stop ocserv
-                      # apt-get remove --purge ocserv -y
-                      echo -e "\e[1;32mCisco AnyConnect removed successfully.\e[0m"
-                      sleep 2
-                      ;;
-                   3) 
-                      echo "Removing L2TP/IPsec (xl2tpd / strongswan)..."
-                      # systemctl stop xl2tpd strongswan
-                      # apt-get remove --purge xl2tpd strongswan -y
-                      echo -e "\e[1;32mL2TP/IPsec removed successfully.\e[0m"
-                      sleep 2
-                      ;;
-                   4) 
-                      echo "Removing WireGuard..."
-                      # systemctl stop wg-quick@wg0
-                      # apt-get remove --purge wireguard -y
-                      echo -e "\e[1;32mWireGuard removed successfully.\e[0m"
-                      sleep 2
-                      ;;
-                   0) break;;
-                   *) echo -e "\e[1;31mInvalid choice.\e[0m"; sleep 1;;
-                esac
-            done
+            sleep 2
             ;;
         0)
-            echo "Exiting Power VPN CLI..."
+            echo "Bye."
             break
             ;;
         *)
-            echo -e "\e[1;31mInvalid option.\e[0m"
+            echo "${color_red}Invalid option.${color_reset}"
             sleep 1
             ;;
     esac

@@ -79,6 +79,18 @@ function applyColumnMigrations(database: Database.Database) {
   }
 }
 
+function applyIndexMigrations(database: Database.Database) {
+  // One inbound per port (across all protocols). If an upgrade hits this on
+  // a database that already has duplicates, the index creation will throw —
+  // surface that loudly so the operator can deduplicate.
+  try {
+    database.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_vpn_inbounds_port ON vpn_inbounds (port)');
+  } catch (err) {
+    console.error('[db] failed to create unique index on vpn_inbounds(port):', err);
+    throw err;
+  }
+}
+
 export async function validateConnection() {
   if (db) return;
 
@@ -93,6 +105,7 @@ export async function validateConnection() {
   }
 
   applyColumnMigrations(db);
+  applyIndexMigrations(db);
 }
 
 // Ensure connection is validated on startup
