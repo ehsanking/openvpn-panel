@@ -4,7 +4,7 @@ export const UserSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
   password: z.string().min(6, 'Password must be at least 6 characters').optional().nullable(),
   role: z.enum(['admin', 'user', 'reseller']).default('user'),
-  status: z.enum(['active', 'inactive', 'suspended']).default('active'),
+  status: z.enum(['active', 'inactive', 'disabled', 'suspended', 'revoked']).default('active'),
   traffic_limit_gb: z.number().min(0).default(10),
   max_connections: z.number().min(0).default(1),
   expires_at: z.string().optional().nullable(),

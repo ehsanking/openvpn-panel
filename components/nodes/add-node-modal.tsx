@@ -21,7 +21,6 @@ export function AddNodeModal({ onSuccess }: Props) {
     register,
     handleSubmit,
     reset,
-    setValue,
     watch,
     formState: { errors }
   } = useForm<ServerFormData>({
@@ -36,14 +35,6 @@ export function AddNodeModal({ onSuccess }: Props) {
       supports_xray: false,
     }
   });
-
-  const protocolSupport = {
-    supports_openvpn: watch('supports_openvpn'),
-    supports_cisco: watch('supports_cisco'),
-    supports_l2tp: watch('supports_l2tp'),
-    supports_wireguard: watch('supports_wireguard'),
-    supports_xray: watch('supports_xray'),
-  };
 
   const onSubmit = async (data: ServerFormData) => {
     setIsSubmitting(true);

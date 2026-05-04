@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Globe, Activity, Plus, X, Copy, Check, Server, 
-  Wifi, WifiOff, Terminal, Shield, Zap, MapPin,
-  ChevronDown, Trash2, RefreshCw, Eye, EyeOff
+import { motion } from 'motion/react';
+import {
+  Globe, Activity, Plus, X, Copy, Check, Server,
+  Wifi, WifiOff, Terminal, Shield, MapPin,
+  Trash2, RefreshCw, Eye, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -563,8 +563,7 @@ function CommandModal({
   const mainCommand = generateMainServerCommand(
     { ip: mainServerIp || 'YOUR_MAIN_SERVER_IP', port: mainServerPort },
     node.tunnel_type,
-    node.tunnel_secret,
-    node.local_forward_port
+    node.tunnel_secret
   );
 
   return (

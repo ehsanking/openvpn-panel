@@ -13,7 +13,7 @@ const CreateUserSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(6).optional().nullable(),
   role: z.enum(['admin', 'user', 'reseller']).default('user'),
-  status: z.enum(['active', 'inactive', 'suspended']).default('active'),
+  status: z.enum(['active', 'inactive', 'disabled', 'suspended', 'revoked']).default('active'),
   traffic_limit_gb: z.number().min(0).default(10),
   max_connections: z.number().min(1).default(1),
   expires_at: z.string().optional().nullable(),
@@ -106,9 +106,9 @@ export async function POST(request: Request) {
 
     // In a real app, hash password here
     const [result]: any = await pool.execute(
-      `INSERT INTO vpn_users 
-       (username, password_hash, role, status, traffic_limit_gb, max_connections, expires_at, created_at, cisco_password, l2tp_password, wg_pubkey, xray_uuid, port, main_protocol) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vpn_users
+       (username, password_hash, role, status, traffic_limit_gb, max_connections, expires_at, cisco_password, l2tp_password, wg_pubkey, xray_uuid, port, main_protocol)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [username, password || null, role, status, traffic_limit_gb, max_connections, finalExpiresAt, cisco_password || null, l2tp_password || null, wg_pubkey || null, xray_uuid || null, port || null, main_protocol || null]
     );
 
@@ -133,7 +133,16 @@ export async function POST(request: Request) {
       }
     }, { status: 201 });
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    // SQLite reports unique-constraint violations via SQLITE_CONSTRAINT_UNIQUE.
+    // Keep the legacy MySQL ER_DUP_ENTRY check so the same code paths work
+    // if the deployment is later swapped back to MySQL.
+    const isDuplicate =
+      error.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+      error.code === 'SQLITE_CONSTRAINT' ||
+      error.code === 'ER_DUP_ENTRY' ||
+      /UNIQUE constraint failed/i.test(error.message || '');
+
+    if (isDuplicate) {
       return NextResponse.json({
         error: {
           code: 'DUPLICATE_USER',

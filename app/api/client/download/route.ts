@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { 
+import {
   generateClientConfig,
   InboundConfig,
   ServerInfo,
-  UserCredentials 
+  UserCredentials
 } from '@/lib/config-generators';
 import { getPkiService } from '@/lib/pki-service';
+import crypto from 'crypto';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
     if (inboundId) {
       const inbounds = await query(
         'SELECT * FROM vpn_inbounds WHERE id = ? LIMIT 1',
-        [parseInt(inboundId)]
+        [parseInt(inboundId, 10)]
       );
       inbound = inbounds[0] || null;
     } else if (protocol) {
@@ -56,7 +57,7 @@ export async function GET(req: Request) {
     const servers = await query(
       'SELECT * FROM vpn_servers WHERE is_active = 1 ORDER BY load_score ASC LIMIT 1'
     );
-    
+
     const server: ServerInfo = servers[0] || {
       ip_address: '127.0.0.1',
       domain: null,
@@ -73,16 +74,22 @@ export async function GET(req: Request) {
 
     // Generate config based on protocol
     let config: any;
-    
+
     if (inbound.protocol === 'openvpn') {
-      // Get PKI certs for OpenVPN
       const pkiService = getPkiService();
       const pki = await pkiService.generateClientCertificate(user.username);
       config = generateClientConfig(inbound.protocol, server, inbound, userCreds, pki);
     } else if (inbound.protocol === 'wireguard') {
-      // For WireGuard, we need to generate a client private key
-      // In production, this would be stored per-user
-      const clientPrivateKey = user.wg_privkey || generateWireGuardPrivateKey();
+      // Persist a per-user WireGuard private key on first use so subsequent
+      // downloads return a stable config instead of rotating the key.
+      let clientPrivateKey: string | undefined = user.wg_privkey;
+      if (!clientPrivateKey) {
+        clientPrivateKey = generateWireGuardPrivateKey();
+        await query(
+          'UPDATE vpn_users SET wg_privkey = ? WHERE id = ?',
+          [clientPrivateKey, user.id]
+        );
+      }
       config = generateClientConfig(inbound.protocol, server, inbound, userCreds, undefined, clientPrivateKey);
     } else {
       config = generateClientConfig(inbound.protocol, server, inbound, userCreds);
@@ -98,7 +105,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // For URL-based configs (Xray protocols)
     if (config.type === 'url' && config.url) {
       return NextResponse.json({
         success: true,
@@ -109,7 +115,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // For instruction-based configs (Cisco, L2TP)
     if (config.type === 'instructions') {
       return NextResponse.json({
         success: true,
@@ -131,14 +136,11 @@ export async function GET(req: Request) {
   }
 }
 
-// Helper function to generate WireGuard private key
+// WireGuard private keys are 32 random bytes encoded as base64.
+// Note: this is not a Curve25519-clamped key — for production use, derive the
+// key with a proper WireGuard library and persist the matching public key on
+// the server. For Power VPN's single-tenant flow we only need a deterministic,
+// cryptographically-random base64 string of the right shape.
 function generateWireGuardPrivateKey(): string {
-  // In production, use proper crypto
-  // This is a placeholder that generates a base64-like string
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let key = '';
-  for (let i = 0; i < 43; i++) {
-    key += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return key + '=';
+  return crypto.randomBytes(32).toString('base64');
 }

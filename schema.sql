@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS vpn_users (
     main_protocol VARCHAR(50) NULL,
     custom_config TEXT,
     profile_data TEXT,
+    client_cert TEXT,
+    client_key TEXT,
+    wg_privkey TEXT,
     FOREIGN KEY (parent_id) REFERENCES vpn_users(id) ON DELETE SET NULL
 );
 

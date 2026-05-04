@@ -5,7 +5,7 @@ import { auditLog } from '@/lib/audit-logger';
 
 const UpdateUserSchema = z.object({
   role: z.enum(['admin', 'user', 'reseller']).optional().nullable(),
-  status: z.enum(['active', 'disabled', 'suspended', 'inactive']).optional().nullable(),
+  status: z.enum(['active', 'inactive', 'disabled', 'suspended', 'revoked']).optional().nullable(),
   traffic_limit_gb: z.number().optional().nullable(),
   max_connections: z.number().optional().nullable(),
   expires_at: z.string().optional().nullable(),

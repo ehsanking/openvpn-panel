@@ -39,7 +39,7 @@ export async function auditLog(
 
   try {
     await query.execute(
-      'INSERT INTO logs (level, message, context, created_at) VALUES (?, ?, ?, NOW())',
+      'INSERT INTO logs (level, message, context, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
       [
         action.includes('error') || action.includes('failed') ? 'error' : 'info',
         `${action} - ${details}`,
