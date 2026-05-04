@@ -20,13 +20,12 @@ export interface VpnUser {
 
 interface UserTableProps {
   users: VpnUser[];
-  downloading: string | null;
   onDownload: (username: string) => void;
   onToggleStatus: (userId: number, currentStatus: string) => void;
   onDelete: (userId: number) => void;
 }
 
-export function UserTable({ users, downloading, onDownload, onToggleStatus, onDelete }: UserTableProps) {
+export function UserTable({ users, onDownload, onToggleStatus, onDelete }: UserTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -166,11 +165,10 @@ export function UserTable({ users, downloading, onDownload, onToggleStatus, onDe
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => onDownload(user.username)}
-                          disabled={downloading === user.username}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
-                          title="Download Config"
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                          title="Open Subscription Portal"
                         >
                           <Download size={16} />
                         </button>

@@ -11,7 +11,6 @@ export function UsersView() {
   const [users, setUsers] = useState<VpnUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -32,23 +31,11 @@ export function UsersView() {
     loadUsers();
   }, []);
 
-  const handleDownload = async (username: string) => {
-    setDownloading(username);
-    try {
-      const res = await fetch(`/api/client/config/${username}`);
-      if (!res.ok) throw new Error('Failed to fetch config');
-      const text = await res.text();
-      const blob = new Blob([text], { type: 'application/x-openvpn-profile' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${username}.ovpn`;
-      a.click();
-    } catch {
-      toast.error(`Unable to generate config for ${username}`);
-    } finally {
-      setDownloading(null);
-    }
+  const handleDownload = (username: string) => {
+    // Opens the user-facing portal where every assigned inbound config can be
+    // copied / scanned / downloaded individually.
+    const url = `/subscription/${encodeURIComponent(username)}`;
+    window.open(url, '_blank', 'noopener');
   };
 
   const handleToggleStatus = async (userId: number, currentStatus: string) => {
@@ -110,9 +97,8 @@ export function UsersView() {
             </button>
           </div>
         ) : (
-          <UserTable 
-            users={users} 
-            downloading={downloading}
+          <UserTable
+            users={users}
             onDownload={handleDownload}
             onToggleStatus={handleToggleStatus}
             onDelete={handleDelete}

@@ -25,6 +25,8 @@ export interface InboundConfig {
   name: string;
   protocol: string;
   port: number;
+  server_address?: string;
+  status?: string;
   // OpenVPN
   ovpn_protocol?: string;
   ovpn_cipher?: string;

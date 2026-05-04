@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 import {
   generateClientConfig,
   InboundConfig,
@@ -8,6 +8,8 @@ import {
 } from '@/lib/config-generators';
 import { getPkiService } from '@/lib/pki-service';
 import crypto from 'crypto';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -20,48 +22,43 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Get user
-    const users = await query(
+    const user = await queryOne(
       'SELECT * FROM vpn_users WHERE username = ? LIMIT 1',
       [username]
     );
 
-    if (!users || users.length === 0) {
+    if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const user = users[0];
-
-    // Get inbound config
     let inbound: InboundConfig | null = null;
 
     if (inboundId) {
-      const inbounds = await query(
-        'SELECT * FROM vpn_inbounds WHERE id = ? LIMIT 1',
-        [parseInt(inboundId, 10)]
+      inbound = await queryOne(
+        `SELECT i.* FROM vpn_inbounds i
+         INNER JOIN user_inbounds ui ON ui.inbound_id = i.id
+         WHERE i.id = ? AND ui.user_id = ?
+         LIMIT 1`,
+        [parseInt(inboundId, 10), user.id]
       );
-      inbound = inbounds[0] || null;
     } else if (protocol) {
-      const inbounds = await query(
-        'SELECT * FROM vpn_inbounds WHERE protocol = ? AND status = ? LIMIT 1',
-        [protocol, 'active']
+      inbound = await queryOne(
+        `SELECT i.* FROM vpn_inbounds i
+         INNER JOIN user_inbounds ui ON ui.inbound_id = i.id
+         WHERE i.protocol = ? AND i.status = 'active' AND ui.user_id = ?
+         ORDER BY i.created_at DESC
+         LIMIT 1`,
+        [protocol, user.id]
       );
-      inbound = inbounds[0] || null;
     }
 
     if (!inbound) {
-      return NextResponse.json({ error: 'Inbound not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Inbound not found or not assigned to user' }, { status: 404 });
     }
 
-    // Get server info
-    const servers = await query(
-      'SELECT * FROM vpn_servers WHERE is_active = 1 ORDER BY load_score ASC LIMIT 1'
-    );
-
-    const server: ServerInfo = servers[0] || {
-      ip_address: '127.0.0.1',
-      domain: null,
-      ports: [443]
+    const server: ServerInfo = {
+      ip_address: inbound.server_address || '127.0.0.1',
+      domain: inbound.server_address,
     };
 
     const userCreds: UserCredentials = {
@@ -72,7 +69,6 @@ export async function GET(req: Request) {
       wg_ip: user.wg_ip
     };
 
-    // Generate config based on protocol
     let config: any;
 
     if (inbound.protocol === 'openvpn') {
@@ -80,8 +76,6 @@ export async function GET(req: Request) {
       const pki = await pkiService.generateClientCertificate(user.username);
       config = generateClientConfig(inbound.protocol, server, inbound, userCreds, pki);
     } else if (inbound.protocol === 'wireguard') {
-      // Persist a per-user WireGuard private key on first use so subsequent
-      // downloads return a stable config instead of rotating the key.
       let clientPrivateKey: string | undefined = user.wg_privkey;
       if (!clientPrivateKey) {
         clientPrivateKey = generateWireGuardPrivateKey();
@@ -95,7 +89,6 @@ export async function GET(req: Request) {
       config = generateClientConfig(inbound.protocol, server, inbound, userCreds);
     }
 
-    // Return based on config type
     if (config.type === 'file' && config.content) {
       return new Response(config.content, {
         headers: {
@@ -136,11 +129,6 @@ export async function GET(req: Request) {
   }
 }
 
-// WireGuard private keys are 32 random bytes encoded as base64.
-// Note: this is not a Curve25519-clamped key — for production use, derive the
-// key with a proper WireGuard library and persist the matching public key on
-// the server. For Power VPN's single-tenant flow we only need a deterministic,
-// cryptographically-random base64 string of the right shape.
 function generateWireGuardPrivateKey(): string {
   return crypto.randomBytes(32).toString('base64');
 }

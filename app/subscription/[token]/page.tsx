@@ -15,6 +15,7 @@ interface ConfigItem {
   type: string;
   url?: string;
   qrData?: string;
+  server?: string;
 }
 
 interface SubscriptionData {
@@ -27,16 +28,8 @@ interface SubscriptionData {
     expiresAt: string;
     maxConnections: number;
   };
-  server: {
-    address: string;
-    ip: string;
-  };
   configs: ConfigItem[];
   subscriptionUrl: string;
-  protocols: {
-    vpn: ConfigItem[];
-    xray: ConfigItem[];
-  };
 }
 
 const getProtocolIcon = (protocol: string) => {
@@ -345,25 +338,6 @@ export default function SubscriptionPage({ params }: { params: Promise<{ token: 
                 <p>Select a protocol to view QR code</p>
               </div>
             )}
-          </div>
-        </motion.div>
-
-        {/* Server Info */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white/50 text-xs font-bold uppercase tracking-wider">Server</p>
-              <p className="text-white font-medium">{data.server.address}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-white/50 text-xs font-bold uppercase tracking-wider">IP Address</p>
-              <p className="text-white font-mono">{data.server.ip}</p>
-            </div>
           </div>
         </motion.div>
 

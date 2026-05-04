@@ -64,6 +64,10 @@ export function AddUserModal({ onSuccess }: Props) {
   };
 
   const onSubmit = async (data: UserFormData) => {
+    if (!data.inboundIds || data.inboundIds.length === 0) {
+      toast.error('Select at least one inbound for this user');
+      return;
+    }
     setIsSubmitting(true);
     const result = await fetchApi('/api/users', {
       method: 'POST',
