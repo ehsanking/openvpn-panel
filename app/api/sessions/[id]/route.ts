@@ -10,7 +10,7 @@ export async function DELETE(
         const { id } = await params;
         if (!id) throw new Error('ID required');
         
-        await query('UPDATE sessions SET status = "disconnected", end_time = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+        await query('UPDATE sessions SET status = ?, end_time = CURRENT_TIMESTAMP WHERE id = ?', ['disconnected', id]);
         return NextResponse.json({ success: true });
     } catch (error) {
         return handleApiError(error);

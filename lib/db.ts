@@ -58,7 +58,7 @@ export async function validateConnection() {
 
 // Ensure connection is validated on startup
 if (process.env.NODE_ENV !== 'test') {
-  validateConnection();
+  validateConnection().catch(err => console.error('[db] Failed to initialize database:', err));
 }
 
 /**

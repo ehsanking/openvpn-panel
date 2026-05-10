@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { auditLog } from '@/lib/audit-logger';
 
@@ -58,7 +59,8 @@ export async function GET(request: Request) {
     params.push(limit, offset);
 
     const [rows] = await pool.execute(sql, params);
-    const [countResult]: any = await pool.execute(countSql, params.slice(0, 1));
+    const countParams = search ? [`%${search}%`] : [];
+    const [countResult]: any = await pool.execute(countSql, countParams);
     const total = countResult[0].total;
 
     return NextResponse.json({
@@ -104,12 +106,13 @@ export async function POST(request: Request) {
     // Convert empty string from date input to null
     const finalExpiresAt = expires_at ? new Date(expires_at) : null;
 
-    // In a real app, hash password here
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+
     const [result]: any = await pool.execute(
       `INSERT INTO vpn_users
        (username, password_hash, role, status, traffic_limit_gb, max_connections, expires_at, cisco_password, l2tp_password, wg_pubkey, xray_uuid, port, main_protocol)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [username, password || null, role, status, traffic_limit_gb, max_connections, finalExpiresAt, cisco_password || null, l2tp_password || null, wg_pubkey || null, xray_uuid || null, port || null, main_protocol || null]
+      [username, hashedPassword, role, status, traffic_limit_gb, max_connections, finalExpiresAt, cisco_password || null, l2tp_password || null, wg_pubkey || null, xray_uuid || null, port || null, main_protocol || null]
     );
 
     const userId = result.insertId;

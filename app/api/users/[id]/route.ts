@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { auditLog } from '@/lib/audit-logger';
 
@@ -92,7 +93,7 @@ export async function PATCH(
     
     if (validatedData.data.password) {
       updates.push('password_hash = ?');
-      values.push(validatedData.data.password);
+      values.push(await bcrypt.hash(validatedData.data.password, 10));
     }
 
     if (updates.length === 0) {
