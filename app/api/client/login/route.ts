@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import * as jose from 'jose';
+import { getJwtSecret } from '@/lib/auth-utils';
 import { isRateLimited } from '@/lib/rate-limit';
 import { auditLog } from '@/lib/audit-logger';
 
@@ -31,12 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 64) {
-       throw new Error("JWT_SECRET missing or too weak (min 64 chars required)");
-    }
-
-    // Generate JWT using jose
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const secret = await getJwtSecret();
     const token = await new jose.SignJWT({ id: user.id, username: user.username })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
